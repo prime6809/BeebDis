@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectSession>
+    <PathDelim Value="\"/>
+    <Version Value="10"/>
+    <BuildModes Active="Default"/>
+    <Units Count="11">
+      <Unit0>
+        <Filename Value="BeebDis.dpr"/>
+        <IsPartOfProject Value="True"/>
+        <IsVisibleTab Value="True"/>
+        <CursorPos X="3" Y="29"/>
+        <UsageCount Value="423"/>
+        <Loaded Value="True"/>
+        <DefaultSyntaxHighlighter Value="Delphi"/>
+      </Unit0>
+      <Unit1>
+        <Filename Value="MemoryListUnit.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="4"/>
+        <CursorPos X="25"/>
+        <UsageCount Value="423"/>
+        <Loaded Value="True"/>
+        <DefaultSyntaxHighlighter Value="Delphi"/>
+      </Unit1>
+      <Unit2>
+        <Filename Value="SymbolListUnit.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="5"/>
+        <TopLine Value="82"/>
+        <CursorPos X="25" Y="69"/>
+        <UsageCount Value="423"/>
+        <Loaded Value="True"/>
+        <DefaultSyntaxHighlighter Value="Delphi"/>
+      </Unit2>
+      <Unit3>
+        <Filename Value="ConsoleUnit.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="7"/>
+        <CursorPos X="53" Y="11"/>
+        <UsageCount Value="423"/>
+        <Loaded Value="True"/>
+        <DefaultSyntaxHighlighter Value="Delphi"/>
+      </Unit3>
+      <Unit4>
+        <Filename Value="CPUMemoryUnit.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="8"/>
+        <CursorPos X="39" Y="154"/>
+        <UsageCount Value="423"/>
+        <Loaded Value="True"/>
+        <DefaultSyntaxHighlighter Value="Delphi"/>
+      </Unit4>
+      <Unit5>
+        <Filename Value="RamothStringListUnit.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="3"/>
+        <TopLine Value="31"/>
+        <CursorPos Y="52"/>
+        <UsageCount Value="423"/>
+        <Loaded Value="True"/>
+        <DefaultSyntaxHighlighter Value="Delphi"/>
+      </Unit5>
+      <Unit6>
+        <Filename Value="DisassemblerUnit.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="2"/>
+        <TopLine Value="69"/>
+        <CursorPos Y="90"/>
+        <UsageCount Value="423"/>
+        <Loaded Value="True"/>
+        <DefaultSyntaxHighlighter Value="Delphi"/>
+      </Unit6>
+      <Unit7>
+        <Filename Value="UtilsUnit.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UsageCount Value="423"/>
+        <DefaultSyntaxHighlighter Value="Delphi"/>
+      </Unit7>
+      <Unit8>
+        <Filename Value="EvalUnit.pas"/>
+        <EditorIndex Value="-1"/>
+        <CursorPos X="13" Y="94"/>
+        <UsageCount Value="194"/>
+        <DefaultSyntaxHighlighter Value="Delphi"/>
+      </Unit8>
+      <Unit9>
+        <Filename Value="BeebDisDefsUnit.pas"/>
+        <EditorIndex Value="1"/>
+        <CursorPos X="17" Y="7"/>
+        <UsageCount Value="175"/>
+        <Loaded Value="True"/>
+        <DefaultSyntaxHighlighter Value="Delphi"/>
+      </Unit9>
+      <Unit10>
+        <Filename Value="fpexprpars.pp"/>
+        <EditorIndex Value="6"/>
+        <TopLine Value="1225"/>
+        <CursorPos X="53" Y="1241"/>
+        <UsageCount Value="178"/>
+        <Loaded Value="True"/>
+        <DefaultSyntaxHighlighter Value="Delphi"/>
+      </Unit10>
+    </Units>
+    <JumpHistory Count="30" HistoryIndex="29">
+      <Position1>
+        <Filename Value="fpexprpars.pp"/>
+        <Caret Line="1250" TopLine="1236"/>
+      </Position1>
+      <Position2>
+        <Filename Value="fpexprpars.pp"/>
+        <Caret Line="1251" TopLine="1236"/>
+      </Position2>
+      <Position3>
+        <Filename Value="fpexprpars.pp"/>
+        <Caret Line="1252" TopLine="1236"/>
+      </Position3>
+      <Position4>
+        <Filename Value="fpexprpars.pp"/>
+        <Caret Line="1255" TopLine="1236"/>
+      </Position4>
+      <Position5>
+        <Filename Value="fpexprpars.pp"/>
+        <Caret Line="1257" TopLine="1236"/>
+      </Position5>
+      <Position6>
+        <Filename Value="fpexprpars.pp"/>
+        <Caret Line="1258" TopLine="1236"/>
+      </Position6>
+      <Position7>
+        <Filename Value="fpexprpars.pp"/>
+        <Caret Line="1259" TopLine="1236"/>
+      </Position7>
+      <Position8>
+        <Filename Value="fpexprpars.pp"/>
+        <Caret Line="1260" TopLine="1236"/>
+      </Position8>
+      <Position9>
+        <Filename Value="fpexprpars.pp"/>
+        <Caret Line="1264" TopLine="1236"/>
+      </Position9>
+      <Position10>
+        <Filename Value="fpexprpars.pp"/>
+        <Caret Line="1265" TopLine="1236"/>
+      </Position10>
+      <Position11>
+        <Filename Value="fpexprpars.pp"/>
+        <Caret Line="1266" TopLine="1236"/>
+      </Position11>
+      <Position12>
+        <Filename Value="fpexprpars.pp"/>
+        <Caret Line="1255" TopLine="1236"/>
+      </Position12>
+      <Position13>
+        <Filename Value="fpexprpars.pp"/>
+        <Caret Line="1268" TopLine="1237"/>
+      </Position13>
+      <Position14>
+        <Filename Value="fpexprpars.pp"/>
+        <Caret Line="1269" TopLine="1238"/>
+      </Position14>
+      <Position15>
+        <Filename Value="fpexprpars.pp"/>
+        <Caret Line="1271" TopLine="1240"/>
+      </Position15>
+      <Position16>
+        <Filename Value="fpexprpars.pp"/>
+        <Caret Line="1272" TopLine="1241"/>
+      </Position16>
+      <Position17>
+        <Filename Value="fpexprpars.pp"/>
+        <Caret Line="1342" TopLine="1323"/>
+      </Position17>
+      <Position18>
+        <Filename Value="fpexprpars.pp"/>
+        <Caret Line="1343" TopLine="1323"/>
+      </Position18>
+      <Position19>
+        <Filename Value="fpexprpars.pp"/>
+        <Caret Line="846" TopLine="826"/>
+      </Position19>
+      <Position20>
+        <Filename Value="fpexprpars.pp"/>
+        <Caret Line="1243" TopLine="1224"/>
+      </Position20>
+      <Position21>
+        <Filename Value="fpexprpars.pp"/>
+        <Caret Line="1461" TopLine="1298"/>
+      </Position21>
+      <Position22>
+        <Filename Value="fpexprpars.pp"/>
+        <Caret Line="65" Column="19" TopLine="46"/>
+      </Position22>
+      <Position23>
+        <Filename Value="BeebDis.dpr"/>
+        <Caret Line="193" Column="21" TopLine="180"/>
+      </Position23>
+      <Position24>
+        <Filename Value="BeebDis.dpr"/>
+        <Caret Line="54" Column="52" TopLine="32"/>
+      </Position24>
+      <Position25>
+        <Filename Value="BeebDisDefsUnit.pas"/>
+        <Caret Line="26" Column="16"/>
+      </Position25>
+      <Position26>
+        <Filename Value="CPUMemoryUnit.pas"/>
+        <Caret Line="154" Column="39" TopLine="135"/>
+      </Position26>
+      <Position27>
+        <Filename Value="SymbolListUnit.pas"/>
+        <Caret Line="342" Column="22" TopLine="323"/>
+      </Position27>
+      <Position28>
+        <Filename Value="SymbolListUnit.pas"/>
+        <Caret Line="68" Column="25" TopLine="51"/>
+      </Position28>
+      <Position29>
+        <Filename Value="SymbolListUnit.pas"/>
+        <Caret Line="69" Column="16" TopLine="51"/>
+      </Position29>
+      <Position30>
+        <Filename Value="MemoryListUnit.pas"/>
+        <Caret Line="120" Column="54" TopLine="101"/>
+      </Position30>
+    </JumpHistory>
+  </ProjectSession>
+  <Debugging>
+    <Watches Count="5">
+      <Item1>
+        <Expression Value="Current"/>
+      </Item1>
+      <Item2>
+        <Expression Value="Dest"/>
+      </Item2>
+      <Item3>
+        <Expression Value="ToAdd"/>
+      </Item3>
+      <Item4>
+        <Expression Value="Location"/>
+      </Item4>
+      <Item5>
+        <Expression Value="Keyword"/>
+      </Item5>
+    </Watches>
+  </Debugging>
+</CONFIG>
