@@ -10,8 +10,8 @@ USES Types,SysUtils,Classes,Contnrs, CPUMemoryUnit, SymbolListUnit, UtilsUnit,
      BeebDisDefsUnit;
 
 TYPE    TItemType = (tyCode, tyDataByte, tyDataWord, tyDataDWord, tyDataString,
-		             tyDataStringTerm,tyDataStringTermHi,tyDataWordEntry,
-                     tyDataWordRTSEntry);
+		             tyDataStringTerm,tyDataStringTermHi,tyDataStringTermHiZ,
+                     tyDataWordEntry, tyDataWordRTSEntry);
 
 	TLocation = Class(TObject)
     PROTECTED
@@ -150,7 +150,8 @@ BEGIN;
     tyDataDWord		    : Result:=4;
     tyDataString,
     tyDataStringTerm,
-    tyDataStringTermHi  : Result:=1;
+    tyDataStringTermHi,
+    tyDataStringTermHiZ : Result:=1;
   ELSE
     Result:=0;
   END;
@@ -201,7 +202,7 @@ END;
 FUNCTION TMemoryList.GetListing : TStringList;
 
 VAR	ItemNo		: INTEGER;
-	CodeLabel       : STRING;
+	CodeLabel   : STRING;
 	Item		: TLocation;
 	Line		: STRING;
 
@@ -241,9 +242,6 @@ BEGIN;
     IF (CodeLabel<>'') THEN
       Flisting.Add(Format('.%s',[CodeLabel]));
 
-//if(Item.Address=$805B) THEN
-//  Writeln('STOP!');
-
     IF (Item.ItemType=tyCode) THEN
       FListing.Add(FormatCode(Item))
     ELSE
@@ -266,16 +264,13 @@ PROCEDURE TMemoryList.AddData(DataType		: TItemType;
 			                  Count		    : DWORD;
                               Terminator	: BYTE = 0);
 
-VAR ToAdd	: TLocation;
+VAR ToAdd	    : TLocation;
     DataSize	: INTEGER;
     ItemSize	: DWORD;
-    Current	: CHAR;
-    ItemNo	: INTEGER;
+    Current	    : CHAR;
+    ItemNo	    : INTEGER;
 
 BEGIN;
-//  if(Location='$805b') THEN
-//    Writeln('STOP!');
-
   IF (LowerCase(Location)=TokenPC) THEN
     ToAdd:=TLocation.Create(FMemory.PC,Count,'',DataType,FALSE)
   ELSE
@@ -284,14 +279,20 @@ BEGIN;
   //ItemSize:=GetItemSize(ToAdd);
   ItemSize:=ToAdd.GetItemSize;
 
-  IF ((DataType IN [tyDataString, tyDataStringTerm, tyDataStringTermHi]) AND (Count=0)) THEN
+  IF ((DataType IN [tyDataString, tyDataStringTerm, tyDataStringTermHi,
+                    tyDataStringTermHiZ]) AND (Count=0)) THEN
   BEGIN;
     FMemory.PC:=ToAdd.Address;
+
+    {Force terminator = 0, if terminating on Hi or Z}
+    IF (DataType=tyDataStringTermHiZ) THEN
+      Terminator:=0;
 
     Current:=FMemory.ReadChar;
     WHILE (((DataType=tyDataString) 	  AND (IsASCII(Current))) OR
            ((DataType=tyDataStringTerm)   AND (ORD(Current)<>Terminator)) OR
-           ((DataType=tyDataStringTermHi) AND (ORD(Current)<$80))) DO
+           ((DataType=tyDataStringTermHi) AND (ORD(Current)<$80)) OR
+           ((DataType=tyDataStringTermHiZ) AND (ORD(Current)<>Terminator) AND (ORD(Current)<$80))) DO
     BEGIN;
       Count:=Count+1;
       Current:=FMemory.ReadChar;
@@ -323,9 +324,9 @@ BEGIN;
 END;
 
 PROCEDURE TMemoryList.AddCode(Location	: DWORD;
-			      Count	: DWORD;
-          		      CodeLine	: STRING;
-			      NewLine	: BOOLEAN);
+			                  Count	    : DWORD;
+          		              CodeLine	: STRING;
+			                  NewLine	: BOOLEAN);
 
 VAR ToAdd	: TLocation;
 
@@ -335,8 +336,6 @@ BEGIN;
 END;
 
 PROCEDURE TMemoryList.AddEntry(Location	: STRING);
-
-//VAR EntryPos	: DWORD;
 
 BEGIN;
   IF (LowerCase(Location)=TokenPC) THEN
@@ -391,12 +390,12 @@ END;
 FUNCTION TMemoryList.FormatData(Item	: TLocation) : STRING;
 
 CONST	DefBytesPerLine	= 8;
-	StrBytesPerLine = 64;
+	    StrBytesPerLine = 64;
 
 VAR ItemSize	: INTEGER;
-    ItemNo	: INTEGER;
+    ItemNo	    : INTEGER;
     ItemCount	: INTEGER;
-    ByteNo	: INTEGER;
+    ByteNo	    : INTEGER;
     BytesPerLine: INTEGER;
 
 BEGIN;
@@ -409,9 +408,10 @@ BEGIN;
     CASE Item.ItemType OF
       tyDataString,
       tyDataStringTerm,
-      tyDataStringTermHi: BytesPerLine:=StrBytesPerLine;
+      tyDataStringTermHi,
+      tyDataStringTermHiZ   : BytesPerLine:=StrBytesPerLine;
       tyDataWordEntry,
-      tyDataWordRTSEntry: BytesPerLine:=2;
+      tyDataWordRTSEntry    : BytesPerLine:=2;
     ELSE
       BytesPerLine:=DefBytesPerLine;
     END;
@@ -432,14 +432,15 @@ BEGIN;
       END;
 
       CASE Item.ItemType OF
-        tyDataByte 		: Item.Text:=Item.Text+Format('$%2.2X,',[FMemory.ReadByte]);
+        tyDataByte 		        : Item.Text:=Item.Text+Format('$%2.2X,',[FMemory.ReadByte]);
         tyDataWord              : Item.Text:=Item.Text+Format('$%4.4X,',[FMemory.ReadWord]);
         tyDataWordEntry         : Item.Text:=Item.Text+FSymbols.GetSymbolValue(FMemory.ReadWord,FALSE)+',';
         tyDataWordRTSEntry      : Item.Text:=Item.Text+FSymbols.GetSymbolValue(FMemory.ReadWord+1,FALSE)+'-1'+',';
-        tyDataDWord		: Item.Text:=Item.Text+Format('$%8.8X,',[FMemory.ReadDWord]);
+        tyDataDWord		        : Item.Text:=Item.Text+Format('$%8.8X,',[FMemory.ReadDWord]);
         tyDataString,
         tyDataStringTerm,
-        tyDataStringTermHi	: Item.Text:=Item.Text+FMemory.ReadChar;
+        tyDataStringTermHi,
+        tyDataStringTermHiZ     : Item.Text:=Item.Text+FMemory.ReadChar;
       END;
 
       ByteNo:=ByteNo+ItemSize;
@@ -495,18 +496,20 @@ BEGIN;
   Result:='';
   IF (Item.Text<>'') THEN
   BEGIN;
-    IF(Item.ItemType IN[tyDataString,tyDataStringTerm, tyDataStringTermHi]) THEN
+    IF(Item.ItemType IN[tyDataString,tyDataStringTerm,
+                        tyDataStringTermHi,tyDataStringTermHiZ]) THEN
       FixupString(Item);
 
     CASE Item.ItemType OF
-      tyDataByte	: Result:=Format('%sEQUB    %s',[IndentStr,Item.Text]);
+      tyDataByte	        : Result:=Format('%sEQUB    %s',[IndentStr,Item.Text]);
       tyDataWord,
-      tyDataWordEntry	: Result:=Format('%sEQUW    %s',[IndentStr,Item.Text]);
-      tyDataWordRTSEntry: Result:=Format('%sEQUW    %s',[IndentStr,Item.Text]);
-      tyDataDWord	: Result:=Format('%sEQUD    %s',[IndentStr,Item.Text]);
+      tyDataWordEntry	    : Result:=Format('%sEQUW    %s',[IndentStr,Item.Text]);
+      tyDataWordRTSEntry    : Result:=Format('%sEQUW    %s',[IndentStr,Item.Text]);
+      tyDataDWord	        : Result:=Format('%sEQUD    %s',[IndentStr,Item.Text]);
       tyDataString,
       tyDataStringTerm,
-      tyDataStringTermHi: Result:=Format('%sEQUS    %s',[IndentStr,Item.Text]);
+      tyDataStringTermHi,
+      tyDataStringTermHiZ   : Result:=Format('%sEQUS    %s',[IndentStr,Item.Text]);
     END;
     IF(Result[Length(Result)]=',') THEN
       SetLength(Result,Length(Result)-1);
@@ -526,10 +529,10 @@ END;
 
 FUNCTION TMemoryList.SearchInsert(SymbolNo	: INTEGER) : TLocation;
 
-VAR	Found		: BOOLEAN;
-	ItemNo		: INTEGER;
+VAR	Found		    : BOOLEAN;
+	ItemNo		    : INTEGER;
 	Location        : TLocation;
-	NewLocation	: TLocation;
+	NewLocation	    : TLocation;
 	SymbolAddress	: DWORD;
 
 BEGIN;

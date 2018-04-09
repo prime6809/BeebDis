@@ -6,13 +6,15 @@ unit CPUMemoryUnit;
 
 interface
 
-USES Types,Classes,SysUtils,UtilsUnit;
+USES Types,Classes,SysUtils,UtilsUnit,RamothStringListUnit;
 
 CONST	IsData		= 'D';
 	    IsCode		= 'C';
 	    IsUnused	= 'U';
 	    IsDone		= 'O';
         NoChange	= 'N';
+
+        OpCodeJMP   = $20;  { 6502 absolute JMP }
 
 TYPE TCPUmemory = Class(TObject)
      PROTECTED
@@ -24,7 +26,7 @@ TYPE TCPUmemory = Class(TObject)
        FLoaded		    : BOOLEAN;
 
        FHexDump		    : TStringList;
-       FFoundStrings	: TStringList;
+       FFoundStrings	: TRamothStringList;
 
        PROCEDURE SetPC(NewPC	: DWORD);
        PROCEDURE FlagArea(Location	: WORD;
@@ -36,7 +38,7 @@ TYPE TCPUmemory = Class(TObject)
        PROPERTY PC		    : DWORD READ FPC WRITE SetPC;
        PROPERTY Loaded		: BOOLEAN READ FLoaded;
        PROPERTY HexDump		: TStringList READ FHexDump;
-       PROPERTY FoundStrings: TStringList READ FFoundStrings;
+       PROPERTY FoundStrings: TRamothStringList READ FFoundStrings;
 
        CONSTRUCTOR Create;
        DESTRUCTOR Destroy; override;
@@ -57,6 +59,7 @@ TYPE TCPUmemory = Class(TObject)
 			                 Last	    : DWORD;
 			                 DoFlags	: BOOLEAN = FALSE);
        PROCEDURE FindStrings;
+       PROCEDURE FindInlineStrings(InlineAddr   : WORD);
      END;
 
 implementation
@@ -70,7 +73,7 @@ BEGIN;
   FEndAddr:=0;
   FPC:=0;
   FHexDump:=TStringList.Create;
-  FFoundStrings:=TStringList.Create;
+  FFoundStrings:=TRamothStringList.Create;
 END;
 
 DESTRUCTOR TCPUmemory.Destroy;
@@ -283,6 +286,41 @@ BEGIN;
     END;
   END;
   FFoundStrings.Add('End:Strings discovered');
+  FFoundStrings.Add('endif');
+END;
+
+PROCEDURE TCPUmemory.FindInlineStrings(InlineAddr   : WORD);
+
+VAR	Found		    : STRING;
+   	Current		    : BYTE;
+    FirstCharPos    : WORD;
+    TmpPC           : DWORD;
+    JmpDest         : WORD;
+
+BEGIN;
+  FPC:=FBaseAddr;
+  Found:='';
+
+  FFoundStrings.Add('if(0)');
+  FFoundStrings.Add('Begin:Inline Strings discovered');
+
+  WHILE (FPC<FEndAddr) DO
+  BEGIN;
+    Current:=ReadByte;
+    IF (Current=OpCodeJMP) THEN
+    BEGIN;
+      TmpPC:=FPC;
+      JmpDest:=ReadWord;
+      IF (JmpDest=InlineAddr) THEN
+      BEGIN;
+        FFoundStrings.AddFormat('stringhiz $%4.4X',[FPC]);
+        FFoundStrings.Add('entry pc');
+      END
+      ELSE
+        FPC:=TmpPC;
+    END;
+  END;
+  FFoundStrings.Add('End:Inline Strings discovered');
   FFoundStrings.Add('endif');
 END;
 

@@ -38,6 +38,7 @@ VAR Disassember	    : TDisassemblerUnit;
     Abort		    : BOOLEAN;
 	OutputBuffer	: TStringList;
 	Options		    : TRamothStringList;
+    InlineAddr      : DWORD;
 
 
 PROCEDURE Initialize;
@@ -51,6 +52,7 @@ BEGIN;
   Abort:=FALSE;
   Disassember.Verbose:=TRUE;
   Options:=TRamothStringList.Create;
+  InlineAddr:=0;;
 END;
 
 PROCEDURE SignOn;
@@ -239,6 +241,9 @@ BEGIN;
           IF (Keyword=KWStringHi) THEN
             MemoryList.AddData(tyDataStringTermHi,Split[1],0,StrToIntDef(Split[2],0));
 
+          IF (Keyword=KWStringHiZ) THEN
+            MemoryList.AddData(tyDataStringTermHiZ,Split[1],0,0);
+
           IF (Keyword=KWEntry) THEN
             MemoryList.AddEntry(Split[1]);
 
@@ -256,6 +261,12 @@ BEGIN;
 
 	      IF (Keyword=KWStringScan) THEN
             Options.BoolValues[OptStringScan]:=TRUE;
+
+	      IF (Keyword=KWInlineScan) THEN
+          BEGIN;
+            InlineAddr:=StrToIntDef(Split[1],0);
+            Options.BoolValues[OptInlineScan]:=TRUE;
+          END;
 
           IF (Keyword=KWNewSym) THEN
           BEGIN;
@@ -279,6 +290,10 @@ BEGIN;
   END;
   IF (Options.BoolValues[OptStringScan]) THEN
     Disassember.Memory.FindStrings;
+
+  IF (Options.BoolValues[OptInlineScan]) THEN
+    Disassember.Memory.FindInlineStrings(InlineAddr);
+
 END;
 
 begin

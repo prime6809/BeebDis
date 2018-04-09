@@ -23,6 +23,7 @@ CONST
 	OptHexDump	    = 'HexDump';
 	OptHexDumpFile	= 'HexDumpFile';
 	OptStringScan	= 'StringScan';
+    OptInlineScan   = 'InlineScan';
 	OptNewSym	    = 'NewSym';
 	OptNewSymFile	= 'NewSymFile';
 
@@ -42,11 +43,13 @@ CONST
     KWStringz       = 'stringz';
     KWStringTerm    = 'stringterm';
     KWStringHi      = 'stringhi';
+    KWStringHiZ     = 'stringhiz';
     KWEntry         = 'entry';
     KWWordEntry     = 'wordentry';
     KWWordRTS       = 'wordrts';
     KWHexDump       = 'hexdump';
     KWStringScan    = 'stringscan';
+    KWInlineScan    = 'inlinescan';
     KWNewSym        = 'newsym';
     KWNewPC         = 'newpc';
 

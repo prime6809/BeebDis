@@ -25,7 +25,7 @@ TYPE    PStrings	= ^TStrings;
 	  PROPERTY BoolValues[AName	: STRING] : BOOLEAN READ GetBoolValue WRITE SetBoolValue;
 
 	  FUNCTION AddFormat(FormatStr	: STRING;
-          		     Params	: ARRAY OF CONST) : INTEGER;
+          		         Params	    : ARRAY OF CONST) : INTEGER;
 
       PROCEDURE First;
       FUNCTION Next : STRING;
