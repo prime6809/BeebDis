@@ -12,32 +12,33 @@ TYPE    PStrings	= ^TStrings;
 
 	TRamothStringList = class(TStringList)
 	PRIVATE
-          FStrIndex	: INTEGER;
+      FStrIndex	: INTEGER;
 	PROTECTED
 	  FGetBlank	: BOOLEAN;
-          FUNCTION Get(Index: Integer): string; override;
-	  FUNCTION GetBoolValue(AName	: STRING) : BOOLEAN;
+      FUNCTION Get(Index: Integer): string; override;
+      FUNCTION GetBoolValue(AName	: STRING) : BOOLEAN;
 	  PROCEDURE SetBoolValue(AName	: STRING;
-				 AValue	: BOOLEAN);
-        PUBLIC
-          PROPERTY StrIndex	: INTEGER READ FStrIndex WRITE FStrIndex;
+				             AValue	: BOOLEAN);
+    PUBLIC
+      PROPERTY StrIndex	: INTEGER READ FStrIndex WRITE FStrIndex;
 	  PROPERTY GetBlank	: BOOLEAN READ FGetBlank WRITE FGetBlank;
 	  PROPERTY BoolValues[AName	: STRING] : BOOLEAN READ GetBoolValue WRITE SetBoolValue;
 
 	  FUNCTION AddFormat(FormatStr	: STRING;
           		     Params	: ARRAY OF CONST) : INTEGER;
 
-          PROCEDURE First;
-          FUNCTION Next : STRING;
-          FUNCTION Eof : BOOLEAN;
-          PROCEDURE CopyNToList(Dest		: PStrings;
-          			NoToCopy	: INTEGER);
-          PROCEDURE Skip(NoToSkip	: INTEGER);
-          PROCEDURE AddMultiple(Params	: ARRAY OF STRING);
-          PROCEDURE ClearAddMultiple(Params	: ARRAY OF STRING);
-          PROCEDURE Split(ToSplit       : STRING;
-                          ClearFirst    : BOOLEAN = TRUE);
-          PROCEDURE ClearAndSplit(ToSplit       : STRING);
+      PROCEDURE First;
+      FUNCTION Next : STRING;
+      FUNCTION Eof : BOOLEAN;
+      PROCEDURE CopyNToList(Dest		: PStrings;
+             			    NoToCopy	: INTEGER);
+      PROCEDURE Skip(NoToSkip	: INTEGER);
+      PROCEDURE AddMultiple(Params	: ARRAY OF STRING);
+      PROCEDURE ClearAddMultiple(Params	: ARRAY OF STRING);
+      PROCEDURE Split(ToSplit       : STRING;
+                      ClearFirst    : BOOLEAN = TRUE);
+      PROCEDURE ClearAndSplit(ToSplit       : STRING);
+      PROCEDURE PurgeBlank;
 	END;
 
 implementation
@@ -85,7 +86,7 @@ BEGIN;
 END;
 
 PROCEDURE TRamothStringList.CopyNToList(Dest		: PStrings;
-  			                NoToCopy	: INTEGER);
+  			                            NoToCopy	: INTEGER);
 
 VAR	Idx	: INTEGER;
 
@@ -170,10 +171,25 @@ BEGIN;
 END;
 
 PROCEDURE TRamothStringList.SetBoolValue(AName	: STRING;
-				 	 AValue	: BOOLEAN);
+				 	                     AValue	: BOOLEAN);
 
 BEGIN;
   Values[AName]:=BoolToStr(AValue,TRUE);
+END;
+
+PROCEDURE TRamothStringList.PurgeBlank;
+
+VAR Idx : INTEGER;
+
+BEGIN;
+  Idx:=Count-1;
+  WHILE (Idx>-1) DO
+  BEGIN
+    IF (Trim(Strings[Idx])='') THEN
+      Delete(Idx);
+
+    Idx:=Idx-1;
+  END;
 END;
 
 end.

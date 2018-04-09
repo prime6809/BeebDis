@@ -4,7 +4,7 @@ interface
 
 CONST
 	Major	= 1;
-	Minor	= 00;
+	Minor	= 10;
 
 {$IFDEF UNIX}
 	Eol		= #$0A;
@@ -25,6 +25,30 @@ CONST
 	OptStringScan	= 'StringScan';
 	OptNewSym	    = 'NewSym';
 	OptNewSymFile	= 'NewSymFile';
+
+    { Keywords accepted by control file parser, defined here as symbolic names }
+    { to make future code mainmaintenance easier!   }
+
+    KWRepeat        = 'repeat';
+    KWEndRepeat     = 'endrepeat';
+    KWActive        = 'active';
+    KWLoad          = 'load';
+    KWSymbols       = 'symbols';
+    KWSave          = 'save';
+    KWByte          = 'byte';
+    KWWord          = 'word';
+    KWDWord         = 'dword';
+    KWString        = 'string';
+    KWStringz       = 'stringz';
+    KWStringTerm    = 'stringterm';
+    KWStringHi      = 'stringhi';
+    KWEntry         = 'entry';
+    KWWordEntry     = 'wordentry';
+    KWWordRTS       = 'wordrts';
+    KWHexDump       = 'hexdump';
+    KWStringScan    = 'stringscan';
+    KWNewSym        = 'newsym';
+    KWNewPC         = 'newpc';
 
 implementation
 

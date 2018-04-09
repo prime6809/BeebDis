@@ -10,72 +10,75 @@ USES Types,SysUtils,Classes,Contnrs, CPUMemoryUnit, SymbolListUnit, UtilsUnit,
      BeebDisDefsUnit;
 
 TYPE    TItemType = (tyCode, tyDataByte, tyDataWord, tyDataDWord, tyDataString,
-		     tyDataStringTerm,tyDataStringTermHi,tyDataWordEntry,
+		             tyDataStringTerm,tyDataStringTermHi,tyDataWordEntry,
                      tyDataWordRTSEntry);
 
 	TLocation = Class(TObject)
-        PROTECTED
-          FItemType     : TItemType;    { Item type }
-          FItemTypeStr  : STRING;
-          PROCEDURE SetItemType(InType  : TItemType);
-        PUBLIC
-          Address	    : DWORD;	{ Address }
-	      Length	    : INTEGER;	{ Length of data }
-	      Text		    : STRING;	{ Disassembled text }
-	      NewLineAfter	: BOOLEAN;	{ Newline after this one ? }
+    PROTECTED
+      FItemType     : TItemType;    { Item type }
+      FItemTypeStr  : STRING;
+      PROCEDURE SetItemType(InType  : TItemType);
+    PUBLIC
+      Address	    : DWORD;	{ Address }
+	  Length	    : INTEGER;	{ Length of data }
+	  Text		    : STRING;	{ Disassembled text }
+	  NewLineAfter	: BOOLEAN;	{ Newline after this one ? }
 
-          PROPERTY ItemType     : TItemType READ FItemType WRITE SetItemType;
-          PROPERTY ItemTypeStr  : STRING READ FItemTypeStr;
+      PROPERTY ItemType     : TItemType READ FItemType WRITE SetItemType;
+      PROPERTY ItemTypeStr  : STRING READ FItemTypeStr;
 
 	  CONSTRUCTOR Create(PAddress	: DWORD;
 			             PLength	: INTEGER;
 			             PText	    : STRING;
 			             PItemType	: TItemType;
 			             PNewLineA  : BOOLEAN); overload;
-          FUNCTION IsInRange(AAddress	: DWORD) : BOOLEAN;
+      FUNCTION IsInRange(AAddress	: DWORD) : BOOLEAN;
 	  FUNCTION Split(AAddress	: DWORD;
-			        ALabel		: STRING) : TLocation;
-          FUNCTION GetItemSize : INTEGER;
-          FUNCTION AsString : STRING;
+		             ALabel		: STRING) : TLocation;
+      FUNCTION GetItemSize : INTEGER;
+      FUNCTION AsString : STRING;
 	END;
 
-        TMemoryList = Class(TObjectList)
-        PRIVATE
-          FListing	    : TStringList;
-	      FMemory	    : TCPUmemory;
-	      FSymbols	    : TSymbolList;
-          FEntryPoints	: TSymbolList;
+    TMemoryList = Class(TObjectList)
+    PRIVATE
+      FListing	    : TStringList;
+	  FMemory	    : TCPUmemory;
+	  FSymbols	    : TSymbolList;
+      FEntryPoints	: TSymbolList;
 
-          FUNCTION GetListing : TStringList;
-	  FUNCTION Add(ToAdd	: TLocation) : INTEGER;
+      FUNCTION GetListing : TStringList;
+      FUNCTION Add(ToAdd	: TLocation) : INTEGER;
 	  FUNCTION FixupString(Item	: TLocation) : STRING;
 	  FUNCTION FormatData(Item	: TLocation) : STRING;
 	  FUNCTION FormatCode(Item	: TLocation) : STRING;
 	  FUNCTION FormatDataOutput(Item	: TLocation) : STRING;
-          FUNCTION GetLocation(Which	: INTEGER) : TLocation;
+      FUNCTION GetLocation(Which	: INTEGER) : TLocation;
 	  FUNCTION SearchInsert(SymbolNo: INTEGER) : TLocation;
-          FUNCTION NewSymbolInRange(SymbolNo    : INTEGER;
-                                    Location    : TLocation) : TLocation;
-        PROTECTED
-          PROPERTY Locations[Which	: INTEGER] : TLocation READ GetLocation;
-        PUBLIC
-          OutputFileName	: STRING;
+      FUNCTION NewSymbolInRange(SymbolNo    : INTEGER;
+                                Location    : TLocation) : TLocation;
+      FUNCTION GetPC : DWORD;
+      PROCEDURE SetPC(NewPC : DWORD);
+    PROTECTED
+      PROPERTY Locations[Which	: INTEGER] : TLocation READ GetLocation;
+    PUBLIC
+      OutputFileName	: STRING;
 	  PROPERTY Listing : TStringList READ GetListing;
+      PROPERTY PC : DWORD READ GetPC WRITE SetPC;
 
-          CONSTRUCTOR Create(Memory	: TCPUmemory;
-			     Symbols	: TSymbolList;
-                             Entries	: TSymbolList);
+      CONSTRUCTOR Create(Memory	    : TCPUmemory;
+		                 Symbols	: TSymbolList;
+                         Entries	: TSymbolList);
 	  PROCEDURE AddData(DataType	: TItemType;
-		            Location	: STRING;
-			    Count	: DWORD;
-                            Terminator	: BYTE = 0);
-          PROCEDURE AddCode(Location	: DWORD;
-			    Count	: DWORD;
-          		    CodeLine	: STRING;
-			    NewLine	: BOOLEAN);
-          PROCEDURE AddEntry(Location	: STRING);
-          PROCEDURE Dump;
-        END;
+	                    Location	: STRING;
+		                Count	    : DWORD;
+                        Terminator	: BYTE = 0);
+      PROCEDURE AddCode(Location	: DWORD;
+		                Count	    : DWORD;
+       		            CodeLine	: STRING;
+		                NewLine	: BOOLEAN);
+      PROCEDURE AddEntry(Location	: STRING);
+      PROCEDURE Dump;
+    END;
 
 implementation
 
@@ -83,10 +86,10 @@ CONST	IndentStr	= '        ';
 
 
 CONSTRUCTOR TLocation.Create(PAddress	: DWORD;
-			     PLength	: INTEGER;
-			     PText	: STRING;
-			     PItemType	: TItemType;
-			     PNewLineA  : BOOLEAN);
+			                 PLength	: INTEGER;
+			                 PText	    : STRING;
+			                 PItemType	: TItemType;
+			                 PNewLineA  : BOOLEAN);
 
 BEGIN;
   INHERITED Create;
@@ -121,7 +124,7 @@ BEGIN;
 END;
 
 FUNCTION TLocation.Split(AAddress	: DWORD;
-			 ALabel		: STRING) : TLocation;
+			             ALabel		: STRING) : TLocation;
 
 VAR	NewLength	: DWORD;
 
@@ -140,11 +143,11 @@ FUNCTION TLocation.GetItemSize : INTEGER;
 
 BEGIN;
   CASE ItemType OF
-    tyDataByte		: Result:=1;
+    tyDataByte		    : Result:=1;
     tyDataWord,
     tyDataWordEntry,
     tyDataWordRTSEntry  : Result:=2;
-    tyDataDWord		: Result:=4;
+    tyDataDWord		    : Result:=4;
     tyDataString,
     tyDataStringTerm,
     tyDataStringTermHi  : Result:=1;
@@ -165,7 +168,7 @@ END;
 { Note this function inverts the values returned for items that are not equal }
 { so that the sort order is reversed as we want lowest -> highest address.    }
 FUNCTION MemoryListCompare(Item1	: Pointer;
-			   Item2	: Pointer) : INTEGER;
+			               Item2	: Pointer) : INTEGER;
 
 VAR	Location1	: TLocation;
 	Location2	: TLocation;
@@ -183,7 +186,7 @@ BEGIN;
 END;
 
 CONSTRUCTOR TMemoryList.Create(Memory	: TCPUmemory;
-			       Symbols	: TSymbolList;
+			                   Symbols	: TSymbolList;
                                Entries	: TSymbolList);
 
 BEGIN;
@@ -259,8 +262,8 @@ BEGIN;
 END;
 
 PROCEDURE TMemoryList.AddData(DataType		: TItemType;
-		              Location		: STRING;
-			      Count		: DWORD;
+		                      Location		: STRING;
+			                  Count		    : DWORD;
                               Terminator	: BYTE = 0);
 
 VAR ToAdd	: TLocation;
@@ -598,5 +601,16 @@ BEGIN;
   END;
 END;
 
+FUNCTION TMemoryList.GetPC : DWORD;
+
+BEGIN;
+  Result:=FMemory.PC;
+END;
+
+PROCEDURE TMemoryList.SetPC(NewPC : DWORD);
+
+BEGIN
+  FMemory.PC:=NewPC;
+END;
 
 end.

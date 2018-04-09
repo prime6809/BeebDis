@@ -13,6 +13,7 @@ FUNCTION PadTo(VAR ToPad	: STRING;
 FUNCTION PadToAdd(VAR ToPad	: STRING;
 	              NewLen	: INTEGER;
 		      ToAdd	: STRING) : STRING;
+
 implementation
 
 FUNCTION IsASCII(ToTest	: CHAR) : BOOLEAN;

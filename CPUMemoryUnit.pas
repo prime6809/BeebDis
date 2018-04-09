@@ -277,7 +277,7 @@ BEGIN;
     ELSE
     BEGIN;
       IF (Length(Found)>2) THEN
-        FFoundStrings.Add(Format('string $%4.4X ; "%s"',[FirstCharPos,Found]));
+        FFoundStrings.Add(Format('string $%4.4X %d ; "%s"',[FirstCharPos,Length(Found),Found]));
 
       Found:='';
     END;
