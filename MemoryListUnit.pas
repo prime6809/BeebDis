@@ -346,10 +346,10 @@ END;
 
 FUNCTION TMemoryList.FixupString(Item	: TLocation) : STRING;
 
-VAR	CurrentChar	: CHAR;
-        CharNo		: INTEGER;
-        AsciiLast	: BOOLEAN;
-        AsciiCurrent	: BOOLEAN;
+VAR	CurrentChar	    : CHAR;
+    CharNo		    : INTEGER;
+    AsciiLast	    : BOOLEAN;
+    AsciiCurrent	: BOOLEAN;
 
 BEGIN;
   Result:='';

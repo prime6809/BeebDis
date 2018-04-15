@@ -15,6 +15,10 @@ program BeebDis;
 { 2018-02-23 merged in and modified fpexprpars from the main freepascal       }
 {       library. This is so that we can support expressions in the label file }
 {       such as those used in beebasm e.g. VAR2 = VAR1 + $100; etc            }
+{ 2018-04-10 Added options to scan for Acorn JSR inline strings. Also added   }
+{       ability to have repeated blocks of data in defined in the control     }
+{       file for defining data tables to be disassembled.                     }
+{       Added ability to set CPU type and disasseble 65c02/wd65c02 code.      }
 
 uses
   SysUtils,
@@ -95,6 +99,11 @@ LOAD addr,filename	    ; Load filename at CPUaddress addr
 SAVE filename		    ; set output file name rather than stdout
 SYMBOLS filename	    ; load symbols from filename
 NEWSYM filename		    ; save newly generated symbols to filename
+CPU num                 ; Set CPU type :
+                          0 : 6502
+                          1 : 65c02
+                          2 : WDC / Rockwell 65c02
+                          3 : 6512
 
 BYTE addr [count]	    ; Byte data for count bytes at address addr
 WORD addr [count]      	; Word data for count bytes at address addr
@@ -103,12 +112,18 @@ STRING addr count	    ; String data for count bytes at address addr
 STRINGZ addr		    ; String data until a $00 byte is reached
 STRINGTERM addr term	; String data until specified terminator is reached
 STRINGHI addr		    ; String data until a byte with high bit set is reached
+STRINGHIZ addr          ; String data until either a zero byte or a byte with
+                        ; high bit set.
 ENTRY addr        	    ; Code entry point
 WORDENTRY addr count	; Use words at addr as entrypoints.
 WORDRTS addr count      ; Like wordentry but word pussed onto stack and jumped
                         ; to by rts, point to lable-1.
 HEXDUMP			        ; Add a hexdump to the end of the output
 STRINGSCAN		        ; Scan for strings output them in the listing
+INLINESCAN addr         ; Scan for Acorn type inline print strinsg that are
+                        ; a JSR addr followed immediately by the string data.
+                        ; if found a STRINGHIZ will be added for the address
+                        ; immediately after the JSR & addr.
 ACTIVE 1 | 0            ; Turn on and off interpretation of keywords, can be
                         ; used to comment a block of directives in a control
                         ; file without having to comment each individually
@@ -217,6 +232,9 @@ BEGIN;
           IF (Keyword=KWSave) THEN
             MemoryList.OutputFilename:=CFilePath+Trim(Split[1]);
 
+          IF (Keyword=KWCPU) THEN
+            SetCPU(StrToIntDef(Split[1],0));
+
           IF (Keyword=KWByte) THEN
             MemoryList.AddData(tyDataByte,Split[1],StrToIntDef(Split[2],1));
 
@@ -323,7 +341,7 @@ begin
 
       IF (Options.BoolValues[OptNewSym]) THEN
         IF (Options.Values[OptNewSymFile]<>'') THEN
-	  Disassember.SymbolList.SaveSymbolsToFile(Options.Values[OptNewSymFile],stGenerated);
+	      Disassember.SymbolList.SaveSymbolsToFile(Options.Values[OptNewSymFile],stGenerated);
 
       IF (Disassember.MemoryList.OutputFilename<>'') THEN
         OutputBuffer.SaveToFile(Disassember.MemoryList.OutputFilename)

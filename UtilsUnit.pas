@@ -8,11 +8,11 @@ interface
 
 FUNCTION IsASCII(ToTest	: CHAR) : BOOLEAN;
 FUNCTION PadTo(VAR ToPad	: STRING;
-	           NewLen	: INTEGER) : STRING;
+	           NewLen	    : INTEGER) : STRING;
 
 FUNCTION PadToAdd(VAR ToPad	: STRING;
 	              NewLen	: INTEGER;
-		      ToAdd	: STRING) : STRING;
+		          ToAdd	    : STRING) : STRING;
 
 implementation
 
@@ -23,7 +23,7 @@ BEGIN;
 END;
 
 FUNCTION PadTo(VAR ToPad	: STRING;
-	           NewLen	: INTEGER) : STRING;
+	           NewLen	    : INTEGER) : STRING;
 
 BEGIN;
   WHILE (Length(ToPad)<NewLen) DO
@@ -34,7 +34,7 @@ END;
 
 FUNCTION PadToAdd(VAR ToPad	: STRING;
 	              NewLen	: INTEGER;
-		      ToAdd	: STRING) : STRING;
+		          ToAdd	    : STRING) : STRING;
 
 BEGIN;
   PadTo(ToPad,NewLen);

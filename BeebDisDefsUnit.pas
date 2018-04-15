@@ -52,6 +52,7 @@ CONST
     KWInlineScan    = 'inlinescan';
     KWNewSym        = 'newsym';
     KWNewPC         = 'newpc';
+    KWCPU           = 'cpu';
 
 implementation
 
