@@ -19,7 +19,8 @@ TYPE
        CONSTRUCTOR Create(ASymbol	: STRING;
        			          AAddress	: DWORD;
        			          ASType	: TSymbolType);
-       FUNCTION FormatSymbol(Column	: INTEGER) : STRING;
+       FUNCTION FormatSymbol(Column	: INTEGER;
+                             Equate : STRING) : STRING;
 
      END;
 
@@ -69,7 +70,8 @@ TYPE
 			            Last	: DWORD) : BOOLEAN;
        PROCEDURE RemoveBlanks;
        PROCEDURE SaveSymbolsToFile(AFileName	: STRING;
-				                   ASymbolType	: TSymbolType);
+				                   ASymbolType	: TSymbolType;
+                                   Equate       : STRING);
      END;
 
 implementation
@@ -103,11 +105,12 @@ BEGIN;
   Self.SType:=ASType;
 END;
 
-FUNCTION TSymbol.FormatSymbol(Column	: INTEGER) : STRING;
+FUNCTION TSymbol.FormatSymbol(Column    : INTEGER;
+                              Equate    : STRING) : STRING;
 
 BEGIN;
   Result:=Format('%s',[Symbol]);
-  PadToAdd(Result,Column,Format('= $%4.4X',[Address]));
+  PadToAdd(Result,Column,Format('%s $%4.4X',[Equate,Address]));
 END;
 
 CONSTRUCTOR TSymbolList.Create(AName		: STRING);
@@ -232,8 +235,8 @@ BEGIN;
   END;
 END;
 
-FUNCTION TSymbolList.GetSymbolValue(Address	: DWORD;
-       			            CanCreate	: BOOLEAN = TRUE) : STRING;
+FUNCTION TSymbolList.GetSymbolValue(Address	    : DWORD;
+       			                    CanCreate	: BOOLEAN = TRUE) : STRING;
 
 BEGIN;
   Result:=GetSymbol(Address,CanCreate);
@@ -360,7 +363,8 @@ BEGIN;
 END;
 
 PROCEDURE TSymbolList.SaveSymbolsToFile(AFileName	: STRING;
-				                        ASymbolType	: TSymbolType);
+				                        ASymbolType	: TSymbolType;
+                                        Equate      : STRING);
 
 VAR	OutList	: TStringList;
     ItemNo	: INTEGER;
@@ -374,7 +378,7 @@ BEGIN;
     FOR ItemNo:=0 TO (Count-1) DO
       WITH TSymbol(Items[ItemNo]) DO
         IF ((SType=ASymbolType) OR (ASymbolType=stAll)) THEN
-          OutList.Add(FormatSymbol(FirstColumn));
+          OutList.Add(FormatSymbol(FirstColumn,Equate));
 
     OutList.SaveToFile(AFileName);
   FINALLY

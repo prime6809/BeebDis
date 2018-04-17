@@ -29,10 +29,10 @@
     <RunParams>
       <local>
         <FormatVersion Value="1"/>
-        <CommandLineParams Value="..\BeebDis_projects\mcmon\mcmon.ctl"/>
+        <CommandLineParams Value="..\BeebDis_projects\6809-test1\flashf.ctl"/>
       </local>
     </RunParams>
-    <Units Count="8">
+    <Units Count="12">
       <Unit0>
         <Filename Value="BeebDis.dpr"/>
         <IsPartOfProject Value="True"/>
@@ -58,13 +58,30 @@
         <IsPartOfProject Value="True"/>
       </Unit5>
       <Unit6>
-        <Filename Value="DisassemblerUnit.pas"/>
+        <Filename Value="Disassembler6502Unit.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit6>
       <Unit7>
         <Filename Value="UtilsUnit.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit7>
+      <Unit8>
+        <Filename Value="Disassembler6809Unit.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit8>
+      <Unit9>
+        <Filename Value="AbstractDisassemblerUnit.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit9>
+      <Unit10>
+        <Filename Value="OpcodeListUnit.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit10>
+      <Unit11>
+        <Filename Value="disassemblersunit.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="DisassemblersUnit"/>
+      </Unit11>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

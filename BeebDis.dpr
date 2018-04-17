@@ -28,14 +28,17 @@ uses
   ConsoleUnit in 'ConsoleUnit.pas',
   CPUMemoryUnit in 'CPUMemoryUnit.pas',
   RamothStringListUnit in 'RamothStringListUnit.pas',
-  DisassemblerUnit in 'DisassemblerUnit.pas',
+  AbstractDisassemblerUnit in 'AbstractDisassemblerUnit.pas',
+  Disassembler6502Unit in 'Disassembler6502Unit.pas',
+  Disassembler6809Unit in 'Disassembler6809Unit.pas',
+  DisassemblersUnit in 'DisassemblersUnit.pas',
   UtilsUnit in 'UtilsUnit.pas',
   BeebDisDefsUnit in 'BeebDisDefsUnit.pas';
 
 
 
 
-VAR Disassember	    : TDisassemblerUnit;
+VAR Disassember	    : TMetaDisassembler;
 	ControlFile	    : TStringList;
 	CFileName	    : STRING;
     CFilePath       : STRING;
@@ -48,13 +51,16 @@ VAR Disassember	    : TDisassemblerUnit;
 PROCEDURE Initialize;
 
 BEGIN;
-  Disassember:=TDisassemblerUnit.Create;
+  Disassember:=TMetaDisassembler.Create;
+  Disassember.Add(TDisassembler6502.Create);
+  Disassember.Add(TDisassembler6809.Create);
+
   ControlFile:=TStringList.Create;
   OutputBuffer:=TStringList.Create;
   CFileName:=ParamStr(1);
   CFilePath:=ExtractFilePath(CFileName);
   Abort:=FALSE;
-  Disassember.Verbose:=TRUE;
+  Disassember.Verbose:=FALSE;
   Options:=TRamothStringList.Create;
   InlineAddr:=0;;
 END;
@@ -100,10 +106,11 @@ SAVE filename		    ; set output file name rather than stdout
 SYMBOLS filename	    ; load symbols from filename
 NEWSYM filename		    ; save newly generated symbols to filename
 CPU num                 ; Set CPU type :
-                          0 : 6502
-                          1 : 65c02
-                          2 : WDC / Rockwell 65c02
-                          3 : 6512
+                          6502      : Standard MOS 6502
+                          65c02     : CMOS 65c02
+                          wd65c02   : WDC / Rockwell 65c02
+                          6512      : 6512
+                          6809      : Motorola 6809 / 6809E
 
 BYTE addr [count]	    ; Byte data for count bytes at address addr
 WORD addr [count]      	; Word data for count bytes at address addr
@@ -233,7 +240,7 @@ BEGIN;
             MemoryList.OutputFilename:=CFilePath+Trim(Split[1]);
 
           IF (Keyword=KWCPU) THEN
-            SetCPU(StrToIntDef(Split[1],0));
+            SetCPUFromName(Split[1]);
 
           IF (Keyword=KWByte) THEN
             MemoryList.AddData(tyDataByte,Split[1],StrToIntDef(Split[2],1));
@@ -246,7 +253,7 @@ BEGIN;
 
           IF (Keyword=KWString) THEN
           begin
-            WriteLnFmt('Split[1]:%s Split[2]:%s',[Split[1],Split[2]]);
+            //WriteLnFmt('Split[1]:%s Split[2]:%s',[Split[1],Split[2]]);
             MemoryList.AddData(tyDataString,Split[1],StrToIntDef(Split[2],0));
           END;
 
@@ -326,7 +333,8 @@ begin
 
       Disassember.Go;
       OutputBuffer.Add(Disassember.MemoryList.Listing.Text);
-
+//Disassember.MemoryList.Dump;
+//WriteLn(Disassember.SymbolList.DumpList);
       with Disassember.Memory do
         HexDumpArea(BaseAddr,EndAddr,True);
 
@@ -337,11 +345,16 @@ begin
           OutputBuffer.Add(Disassember.Memory.HexDump.Text);
 
       IF (Options.BoolValues[OptStringScan]) THEN
+      BEGIN
+        OutputBuffer.Add(Disassember.MemoryList.Parameters[mlBeginIgnore]);
         OutputBuffer.Add(Disassember.Memory.FoundStrings.Text);
+        OutputBuffer.Add(Disassember.MemoryList.Parameters[mlEndIgnore]);
+      END;
 
       IF (Options.BoolValues[OptNewSym]) THEN
         IF (Options.Values[OptNewSymFile]<>'') THEN
-	      Disassember.SymbolList.SaveSymbolsToFile(Options.Values[OptNewSymFile],stGenerated);
+	      Disassember.SymbolList.SaveSymbolsToFile(Options.Values[OptNewSymFile],stGenerated,
+                                                   Disassember.MemoryList.Parameters[mlEquate]);
 
       IF (Disassember.MemoryList.OutputFilename<>'') THEN
         OutputBuffer.SaveToFile(Disassember.MemoryList.OutputFilename)

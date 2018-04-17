@@ -58,6 +58,9 @@ TYPE TCPUmemory = Class(TObject)
        PROCEDURE HexDumpArea(First	    : DWORD;
 			                 Last	    : DWORD;
 			                 DoFlags	: BOOLEAN = FALSE);
+       FUNCTION HexDumpBytes(First	    : DWORD;
+			                 Last	    : DWORD) : STRING;
+
        PROCEDURE FindStrings;
        PROCEDURE FindInlineStrings(InlineAddr   : WORD);
      END;
@@ -111,7 +114,7 @@ BEGIN;
       FlagCode(FBaseAddr,TempStream.Size);
     END;
 
-    FEndAddr:=FBaseAddr+TempStream.Size;
+    FEndAddr:=FBaseAddr+TempStream.Size-1;
     HexDumpArea(FBaseAddr,FEndAddr,True);
 
     //WriteLnFmt('Loaded %s at %4.4X',[FileName,FBaseAddr]);
@@ -254,6 +257,17 @@ BEGIN;
   END;
 END;
 
+FUNCTION TCPUmemory.HexDumpBytes(First	    : DWORD;
+ 	                             Last	    : DWORD) : STRING;
+
+VAR LocalPC	: DWORD;
+
+BEGIN;
+  Result:='';
+  FOR LocalPC:=First TO Last DO
+    Result:=Result+Format('%2.2X ',[FMemory[LocalPC]]);
+END;
+
 PROCEDURE TCPUmemory.FindStrings;
 
 VAR	Found		    : STRING;
@@ -264,7 +278,6 @@ BEGIN;
   FPC:=FBaseAddr;
   Found:='';
   FFoundStrings.Clear;
-  FFoundStrings.Add('if(0)');
   FFoundStrings.Add('Begin:Strings discovered');
 
   WHILE (FPC<FEndAddr) DO
@@ -286,7 +299,6 @@ BEGIN;
     END;
   END;
   FFoundStrings.Add('End:Strings discovered');
-  FFoundStrings.Add('endif');
 END;
 
 PROCEDURE TCPUmemory.FindInlineStrings(InlineAddr   : WORD);

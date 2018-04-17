@@ -1,4 +1,4 @@
-unit DisassemblerUnit;
+unit Disassembler6502Unit;
 
 {$IFDEF FPC}
   {$MODE Delphi}
@@ -7,101 +7,61 @@ unit DisassemblerUnit;
 interface
 
 USES Types,SysUtils,Classes,CPUMemoryUnit, SymbolListUnit,
-     MemoryListUnit,BeebDisDefsUnit,ConsoleUnit;
+     MemoryListUnit,BeebDisDefsUnit,AbstractDisassemblerUnit;
 
 TYPE
-    TCPU    = (tc6502, tc65c02, tc65c02wd, tc6512);
-    TCPUSet = SET OF TCPU;
-
     TBranch = (brNone,brRelative,brAbsolute,brRtsRti,brZPRelative);
 
-
-    TOpCode = RECORD
+    TOpCode6502 = Class(TOpCode)
       OpStr 	: STRING;
       OpBytes   : INTEGER;
       CPU	    : TCPUSet;
       Branch	: TBranch;
-      Valid	    : BOOLEAN;
     END;
 
-    TDisassemblerUnit = Class(TObject)
+    TDisassembler6502 = Class(TADisassembler)
     PROTECTED
- 	  FOpCodes	: ARRAY[$00..$FF]OF TOpCode;
-	  FVerbose	: BOOLEAN;
-      FCPU      : TCPU;
+      PROCEDURE DecodeInstruction;  override;
+	  PROCEDURE InitOpcodes;        override;
+      PROCEDURE InitDirectives;     override;
 
-      FUNCTION CalcRelative(RelByte     : BYTE) : WORD;
-      PROCEDURE DecodeInstruction;
-	  PROCEDURE InitOpcodes;
 	  PROCEDURE MakeOpCode(OpNo	        : INTEGER;
 	    	               InOpStr	    : STRING;
 			               InOpBytes	: INTEGER;
 			               InCPU	    : TCPUSet;
 			               InBranch	    : TBranch = brNone);
-	  PROCEDURE SetVerbose(NewValue	: BOOLEAN);
     PUBLIC
-      SymbolList		: TSymbolList;
-	  EntryPoints		: TSymbolList;
-	  Memory			: TCPUmemory;
-	  MemoryList		: TMemoryList;
-	  PROPERTY Verbose 	: BOOLEAN READ FVerbose WRITE SetVerbose;
-      PROPERTY CPU      : TCPU READ FCPU WRITE FCPU;
-
       CONSTRUCTOR Create;
       DESTRUCTOR Destroy; override;
-      PROCEDURE Go;
-	  PROCEDURE LoadFromFile(FileName	: STRING;
-			                 PBaseAddr	: DWORD);
-      PROCEDURE SetCPU(CPUType     : INTEGER);
+      PROCEDURE Go;  override;
     END;
 
 implementation
 
 CONST	OpCodeBRK	= 0;
 
-CONSTRUCTOR TDisassemblerUnit.Create;
+CONSTRUCTOR TDisassembler6502.Create;
 
 BEGIN;
   INHERITED Create;
-  Memory:=TCPUmemory.Create;
-  SymbolList:=TSymbolList.Create('SymbolList');
-  EntryPoints:=TSymbolList.Create('EntryPoints');
-  MemoryList:=TMemoryList.Create(Memory,SymbolList,EntryPoints);
   InitOpcodes;
-  Verbose:=FALSE;
   FCPU:=tc6502;
+  FMinCPU:=tc6502;
+  FMaxCPU:=tc6512;
 END;
 
-DESTRUCTOR TDisassemblerUnit.Destroy;
+DESTRUCTOR TDisassembler6502.Destroy;
+
+VAR	OpNo	: INTEGER;
 
 BEGIN;
-  MemoryList.Free;
-  EntryPoints.Free;
-  SymbolList.Free;
-  Memory.Free;
+  FOR OpNo:=$00 TO $FF DO
+    FOpCodes[OpNo].Free;
+
   INHERITED Destroy;
 END;
 
-PROCEDURE TDisassemblerUnit.SetVerbose(NewValue	: BOOLEAN);
-
-BEGIN;
-  FVerbose:=NewValue;
-  EntryPoints.Verbose:=FVerbose;
-  SymbolList.Verbose:=FALSE;
-  SymbolList.Verbose:=FVerbose;
-END;
-
-PROCEDURE TDisassemblerUnit.LoadFromFile(FileName	: STRING;
-			       		                 PBaseAddr	: DWORD);
-
-BEGIN;
-  Memory.LoadFromFile(FileName,PBaseAddr);
-  EntryPoints.SetRange(Memory.EndAddr,Memory.BaseAddr);
-  IF (FVerbose) THEN
-    WriteLnFmt('Loaded %s at $%4.4X - $%4.4X',[FileName,Memory.BaseAddr,Memory.EndAddr]);
-END;
-
-PROCEDURE TDisassemblerUnit.Go;
+PROCEDURE TDisassembler6502.Go;
 
 VAR	EntryPoint	: DWORD;
 
@@ -134,20 +94,10 @@ WriteLn(Format('Disassembling %4.4X',[EntryPoint]));
     MemoryList.AddData(tyDataByte,'pc',Memory.AreaLength(IsCode));
 END;
 
-FUNCTION TDisassemblerUnit.CalcRelative(RelByte     : BYTE) : WORD;
-
-BEGIN;
-  { Relative branch calculate offset from PC }
-  IF (RelByte < $80) THEN
-    Result:=Memory.PC+(RelByte)
-  ELSE
-    Result:=Memory.PC-256+RelByte;
-END;
-
-PROCEDURE TDisassemblerUnit.DecodeInstruction;
+PROCEDURE TDisassembler6502.DecodeInstruction;
 
 VAR	OpCode		: BYTE;
-	Op		    : TOpCode;
+	Op		    : TOpCode6502;
     ByteParam	: BYTE;
     ByteParam2	: BYTE;
     WordParam	: WORD;
@@ -164,7 +114,7 @@ BEGIN;
 
   {Fetch the opcode, and look it up}
   OpCode:=Memory.ReadByte(IsDone);
-  Op:=FOpCodes[OpCode];
+  Op:=TOpCode6502(FOpCodes[OpCode]);
 
   { Init them to something sensible, and silence compiler warning! }
   ByteParam:=0;
@@ -173,7 +123,7 @@ BEGIN;
   if (Opcode=$60) THEN
     WriteLn(Format('RTS at $%4.4X',[Location]));
 
-  IF  ((Op.Valid) AND (FCPU IN Op.CPU)) THEN
+  IF  ((Op<>NIL) AND (FCPU IN Op.CPU)) THEN
   BEGIN;
     IsImmediate:=(Pos('#',Op.OpStr)>0);
 
@@ -195,11 +145,11 @@ BEGIN;
 
       IF (Op.Branch=brRelative) THEN        { Relative address, Bcc etc }
       BEGIN;
-        TargetAddr:=CalcRelative(ByteParam);
+        TargetAddr:=CalcRelative8(ByteParam);
       END
       ELSE IF (Op.Branch=brZPRelative) THEN { ZP then relative, wd65c02 BRRx etc }
       BEGIN
-        TargetAddr:=CalcRelative(ByteParam2);
+        TargetAddr:=CalcRelative8(ByteParam2);
       END
       ELSE
       BEGIN;
@@ -233,48 +183,42 @@ BEGIN;
     {mark as data so it does not generate an invalid opcode}
     IF ((OpCode=OpCodeBRK) AND (Memory.GetFlag=IsCode)) THEN
       MemoryList.AddData(tyDataByte,'pc',1);
+
+    IF (Op.Branch=brNone) THEN
+      MemoryList.AddCode(Location,Op.OpBytes+1,Instruction,FALSE)
+    ELSE
+      MemoryList.AddCode(Location,Op.OpBytes+1,Instruction,TRUE);
   END
   ELSE
   BEGIN;
     Instruction:=Format('; PC=%4.4X INVALID opcode %2.2x',[Location,OpCode]);
   END;
-
-//  IF (Op.Branch<>brRtsRti) THEN
-  BEGIN;
-    IF (Op.Branch=brNone) THEN
-      MemoryList.AddCode(Location,Op.OpBytes+1,Instruction,FALSE)
-    ELSE
-      MemoryList.AddCode(Location,Op.OpBytes+1,Instruction,TRUE);
-  END;
 END;
 
-PROCEDURE TDisassemblerUnit.MakeOpCode(OpNo		    : INTEGER;
+PROCEDURE TDisassembler6502.MakeOpCode(OpNo		    : INTEGER;
 			     	                   InOpStr		: STRING;
 			     	                   InOpBytes	: INTEGER;
 			     	                   InCPU		: TCPUSet;
 			     	                   InBranch		: TBranch = brNone);
 
+VAR OpCode  : TOpCode6502;
+
 BEGIN;
-  WITH FOpCodes[OpNo] DO
+  OpCode:=TOpCode6502.Create;
+  WITH OpCode DO
   BEGIN;
     OpStr:=InOpStr;
     OpBytes:=InOpBytes;
     CPU:=InCPU;
     Branch:=InBranch;
-    Valid:=TRUE;
   END;
+  FOpCodes[OpNo]:=OpCode;
 END;
 
-PROCEDURE TDisassemblerUnit.InitOpcodes;
-
-VAR	OpNo	: INTEGER;
+PROCEDURE TDisassembler6502.InitOpcodes;
 
 BEGIN;
-  FOR OpNo:=$00 TO $FF DO
-  BEGIN
-    FOpCodes[OpNo].Valid:=FALSE;
-    FOpCodes[OpNo].CPU:=[];
-  END;
+  INHERITED Create;
 
   MakeOpCode($00,'BRK',		    0,[tc6502,tc65c02,tc65c02wd]);
   MakeOpCode($01,'ORA (%s,X)',	1,[tc6502,tc65c02,tc65c02wd]);
@@ -505,11 +449,10 @@ BEGIN;
   MakeOpCode($FF,'BBS7 %s,%s',  2,[tc65c02wd],brZPRelative);
 END;
 
-PROCEDURE TDisassemblerUnit.SetCPU(CPUType     : INTEGER);
+PROCEDURE TDisassembler6502.InitDirectives;
 
-BEGIN;
-  IF ((CPUType >= Ord(Low(TCPU))) AND (CPUType <= Ord(High(TCPU)))) THEN
-    FCPU:=TCPU(CPUType);
+BEGIN
+
 END;
 
 end.

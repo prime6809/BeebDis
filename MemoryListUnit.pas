@@ -7,11 +7,30 @@ unit MemoryListUnit;
 interface
 
 USES Types,SysUtils,Classes,Contnrs, CPUMemoryUnit, SymbolListUnit, UtilsUnit,
-     BeebDisDefsUnit;
+     BeebDisDefsUnit,ConsoleUnit;
+
+{ Constants for setting assembler output directives, these should be set by   }
+{ setting TMemoryList's Parameters.                                           }
+{ The defaults are useful for BeebASM, the Disassembler6809Unit changes these }
+{ to be the standard 6809 equivilents as used by the mamou assembler.         }
+{ In the future I may allow for these to be defined in the control file       }
+CONST
+    mlLabelPrefix   = 'LabelPrefix';    // e.g. the preiod before beebasm lables
+    mlLabelSuffix   = 'LabelSuffix';    // e.g. a colon after the lable
+                                        // token used to define :
+    mlDefineByte    = 'DefineByte';     // bytes : EQUB, FCB etc
+    mlDefineWord    = 'DefineWord';     // words : EQUW, FDB etc
+    mlDefineDWord   = 'DefineDWord';    // dwords : EQUD, FCD? etc
+    mlDefineString  = 'DefineString';   // strings : EQUS, FCC etc
+    mlOrigin        = 'Origin';         // the origin : ORG etc
+    mlEquate        = 'Equate';         // a symbol, =, EQU etc.
+    mlBeginIgnore   = 'BeginIgnore';    // beginning of an ignored block
+    mlEndIgnore     = 'EndIgnore';      // end of an ignored block
+    mlSaveCmd       = 'SaveCommand';    // the save command (just for beebasm currently)
 
 TYPE    TItemType = (tyCode, tyDataByte, tyDataWord, tyDataDWord, tyDataString,
 		             tyDataStringTerm,tyDataStringTermHi,tyDataStringTermHiZ,
-                     tyDataWordEntry, tyDataWordRTSEntry);
+                     tyDataWordEntry, tyDataWordRTSEntry, tyEquate);
 
 	TLocation = Class(TObject)
     PROTECTED
@@ -45,6 +64,7 @@ TYPE    TItemType = (tyCode, tyDataByte, tyDataWord, tyDataDWord, tyDataString,
 	  FMemory	    : TCPUmemory;
 	  FSymbols	    : TSymbolList;
       FEntryPoints	: TSymbolList;
+      FDebug        : BOOLEAN;
 
       FUNCTION GetListing : TStringList;
       FUNCTION Add(ToAdd	: TLocation) : INTEGER;
@@ -59,11 +79,19 @@ TYPE    TItemType = (tyCode, tyDataByte, tyDataWord, tyDataDWord, tyDataString,
       FUNCTION GetPC : DWORD;
       PROCEDURE SetPC(NewPC : DWORD);
     PROTECTED
+      FParameters   : TStringList;
+
       PROPERTY Locations[Which	: INTEGER] : TLocation READ GetLocation;
+
+      FUNCTION GetParam(Index   : STRING) : STRING;
+      PROCEDURE SetParam(Index  : STRING;
+                         Value  : STRING);
+      PROCEDURE InitParameters;
     PUBLIC
-      OutputFileName	: STRING;
-	  PROPERTY Listing : TStringList READ GetListing;
-      PROPERTY PC : DWORD READ GetPC WRITE SetPC;
+      OutputFileName	    : STRING;
+	  PROPERTY Listing      : TStringList READ GetListing;
+      PROPERTY PC           : DWORD READ GetPC WRITE SetPC;
+      PROPERTY Parameters[Index : STRING] : STRING READ GetParam WRITE SetParam;
 
       CONSTRUCTOR Create(Memory	    : TCPUmemory;
 		                 Symbols	: TSymbolList;
@@ -75,9 +103,11 @@ TYPE    TItemType = (tyCode, tyDataByte, tyDataWord, tyDataDWord, tyDataString,
       PROCEDURE AddCode(Location	: DWORD;
 		                Count	    : DWORD;
        		            CodeLine	: STRING;
-		                NewLine	: BOOLEAN);
+		                NewLine	    : BOOLEAN);
       PROCEDURE AddEntry(Location	: STRING);
+      DESTRUCTOR Destroy; OVERRIDE;
       PROCEDURE Dump;
+
     END;
 
 implementation
@@ -193,10 +223,50 @@ CONSTRUCTOR TMemoryList.Create(Memory	: TCPUmemory;
 BEGIN;
   INHERITED Create;
   FListing:=TStringList.Create;
+  FParameters:=TStringList.Create;
   FMemory:=Memory;
   FSymbols:=Symbols;
   FEntryPoints:=Entries;
   OutputFileName:='';
+  FDebug:=FALSE;
+  InitParameters;
+END;
+
+DESTRUCTOR TMemoryList.Destroy;
+
+BEGIN;
+  FListing.Free;
+  FParameters.Free;
+  INHERITED Destroy;
+END;
+
+FUNCTION TMemoryList.GetParam(Index   : STRING) : STRING;
+
+BEGIN;
+  Result:=FParameters.Values[Index];
+END;
+
+PROCEDURE TMemoryList.SetParam(Index  : STRING;
+                               Value  : STRING);
+
+BEGIN;
+  FParameters.Values[Index]:=Value;
+END;
+
+PROCEDURE TMemoryList.InitParameters;
+
+BEGIN;
+  Parameters[mlLabelPrefix]:=   '.';
+  Parameters[mlLabelSuffix]:=   '';
+  Parameters[mlDefineByte]:=    'EQUB';
+  Parameters[mlDefineWord]:=    'EQUW';
+  Parameters[mlDefineDWord]:=   'EQUD';
+  Parameters[mlDefineString]:=  'EQUS';
+  Parameters[mlOrigin]:=        'org';
+  Parameters[mlBeginIgnore]:=   'if(0)';
+  Parameters[mlEndIgnore]:=     'endif';
+  Parameters[mlSaveCmd]:=       'SAVE';
+  Parameters[mlEquate]:=        '=';
 END;
 
 FUNCTION TMemoryList.GetListing : TStringList;
@@ -213,16 +283,16 @@ BEGIN;
   {Output symbols that are outside our range}
   FSymbols.SortSymbols;
   FOR ItemNo:=0 TO (FSymbols.Count-1) DO
-   IF ((FSymbols.Addresses[ItemNo]<FMemory.BaseAddr) OR
-       (FSymbols.Addresses[ItemNo]>FMemory.EndAddr)) THEN
-   BEGIN;
-     Flisting.Add(TSymbol(FSymbols.Items[ItemNo]).FormatSymbol(FirstColumn));
-   END
-   ELSE
-   BEGIN;
-     SearchInsert(ItemNo);
-     Sort(MemoryListCompare);
-   END;
+    IF ((FSymbols.Addresses[ItemNo]<FMemory.BaseAddr) OR
+        (FSymbols.Addresses[ItemNo]>FMemory.EndAddr)) THEN
+    BEGIN;
+      Flisting.Add(TSymbol(FSymbols.Items[ItemNo]).FormatSymbol(FirstColumn,Parameters[mlEquate]));
+    END
+    ELSE
+    BEGIN;
+      SearchInsert(ItemNo);
+      Sort(MemoryListCompare);
+    END;
 
   FSymbols.RemoveBlanks;
   FListing.Add('');
@@ -232,7 +302,7 @@ BEGIN;
     Line:='';
     IF (ItemNo=0) THEN
     BEGIN;
-      PadToAdd(Line,FirstColumn,'org');
+      PadToAdd(Line,FirstColumn,Parameters[mlOrigin]);
       PadToAdd(Line,SecondColumn,Format('$%4.4X',[Item.Address]));
       Flisting.Add(Line);
     END;
@@ -240,16 +310,18 @@ BEGIN;
     CodeLabel:=FSymbols.GetSymbol(Item.Address,FALSE);
 
     IF (CodeLabel<>'') THEN
-      Flisting.Add(Format('.%s',[CodeLabel]));
+      Flisting.Add(Format('%s%s%s',[Parameters[mlLabelPrefix],CodeLabel,Parameters[mlLabelSuffix]]));
 
     IF (Item.ItemType=tyCode) THEN
       FListing.Add(FormatCode(Item))
+    ELSE IF (Item.ItemType=tyEquate) THEN
+      FListing.Add(Item.Text)
     ELSE
       FListing.Add(FormatData(Item));
   END;
-  FListing.Add('.'+EndAddrLable);
+  FListing.Add(Parameters[mlLabelPrefix]+EndAddrLable+Parameters[mlLabelSuffix]);
   IF (OutputFileName<>'') THEN
-    FListing.Add(Format('SAVE "%s",%s,%s',[ChangeFileExt(OutputFileName,BinExt),StartAddrLable,EndAddrLable]));
+    FListing.Add(Format('%s "%s",%s,%s',[Parameters[mlSaveCmd],ChangeFileExt(OutputFileName,BinExt),StartAddrLable,EndAddrLable]));
   Result:=FListing;
 END;
 
@@ -271,6 +343,9 @@ VAR ToAdd	    : TLocation;
     ItemNo	    : INTEGER;
 
 BEGIN;
+  IF (FDebug) THEN
+    WriteLnFmt('TMemoryList.AddData(%d,%s,%d,%d)',[Integer(DataType),Location,Count,Terminator]);
+
   IF (LowerCase(Location)=TokenPC) THEN
     ToAdd:=TLocation.Create(FMemory.PC,Count,'',DataType,FALSE)
   ELSE
@@ -331,6 +406,9 @@ PROCEDURE TMemoryList.AddCode(Location	: DWORD;
 VAR ToAdd	: TLocation;
 
 BEGIN;
+  IF (FDebug) THEN
+    WriteLnFmt('TMemoryList.AddCode($%4.4X,%d,%s,%s)',[Location,Count,CodeLine,BoolToStr(NewLine)]);
+
   ToAdd:=TLocation.Create(Location,Count,CodeLine,tyCode,NewLine);
   Add(ToAdd);
 END;
@@ -338,6 +416,9 @@ END;
 PROCEDURE TMemoryList.AddEntry(Location	: STRING);
 
 BEGIN;
+  IF (FDebug) THEN
+    WriteLnFmt('TMemoryList.AddEntry(%s)',[Location]);
+
   IF (LowerCase(Location)=TokenPC) THEN
     FEntryPoints.SafeAddAddress(FMemory.PC,'')
   ELSE
@@ -501,15 +582,15 @@ BEGIN;
       FixupString(Item);
 
     CASE Item.ItemType OF
-      tyDataByte	        : Result:=Format('%sEQUB    %s',[IndentStr,Item.Text]);
+      tyDataByte	        : Result:=Format('%s%s    %s',[IndentStr,Parameters[mlDefineByte],Item.Text]);
       tyDataWord,
-      tyDataWordEntry	    : Result:=Format('%sEQUW    %s',[IndentStr,Item.Text]);
-      tyDataWordRTSEntry    : Result:=Format('%sEQUW    %s',[IndentStr,Item.Text]);
-      tyDataDWord	        : Result:=Format('%sEQUD    %s',[IndentStr,Item.Text]);
+      tyDataWordEntry	    : Result:=Format('%s%s    %s',[IndentStr,Parameters[mlDefineWord],Item.Text]);
+      tyDataWordRTSEntry    : Result:=Format('%s%s    %s',[IndentStr,Parameters[mlDefineWord],Item.Text]);
+      tyDataDWord	        : Result:=Format('%s%s    %s',[IndentStr,Parameters[mlDefineDWord],Item.Text]);
       tyDataString,
       tyDataStringTerm,
       tyDataStringTermHi,
-      tyDataStringTermHiZ   : Result:=Format('%sEQUS    %s',[IndentStr,Item.Text]);
+      tyDataStringTermHiZ   : Result:=Format('%s%s    %s',[IndentStr,Parameters[mlDefineString],Item.Text]);
     END;
     IF(Result[Length(Result)]=',') THEN
       SetLength(Result,Length(Result)-1);
@@ -541,16 +622,31 @@ BEGIN;
   SymbolAddress:=FSymbols.Addresses[SymbolNo];
   NewLocation:=NIL;
 
+  IF(SymbolAddress=$1082) THEN
+    WriteLn('Found');
+
+  {Search for an exact match first!}
   WHILE (NOT Found AND (ItemNo<Count)) DO
   BEGIN;
     Location:=GetLocation(ItemNo);
     IF (Location.Address=SymbolAddress) THEN
       Found:=TRUE
-    ELSE IF (Location.IsInRange(SymbolAddress)) THEN
+    ELSE
+      ItemNo:=ItemNo+1;
+  END;
+
+  {If we didn't find an exact match, search for a range that we can}
+  {split}
+  ItemNo:=0;
+  WHILE (NOT Found AND (ItemNo<Count)) DO
+  BEGIN;
+    Location:=GetLocation(ItemNo);
+    IF (Location.IsInRange(SymbolAddress)) THEN
     BEGIN;
       IF(Location.ItemType=tyCode) THEN
       BEGIN;
         NewLocation:=NewSymbolInRange(SymbolNo,Location);
+        NewLocation.ItemType:=tyEquate;
       END
       ELSE
       BEGIN;
@@ -586,17 +682,18 @@ BEGIN;
   BEGIN;
     GetSymbol(Location.Address);
     Result:=TLocation.Create(SymbolAddress,0,'',tyCode,FALSE);
-    Result.Text:=Format('%s = %s+%d',[GetSymbol(SymbolAddress),GetSymbol(Location.Address),SymbolAddress-Location.Address]);
+    Result.Text:=Format('%s %s %s+%d',[GetSymbol(SymbolAddress),Parameters[mlEquate],GetSymbol(Location.Address),SymbolAddress-Location.Address]);
     TSymbol(FSymbols.Items[SymbolNo]).Symbol:='';
   END;
 END;
 
 PROCEDURE TMemoryList.Dump;
 
-VAR Idx         : INTEGER;
+VAR Idx     : INTEGER;
     Item	: TLocation;
 
 BEGIN;
+  WriteLnFmt('%s : Dump',[Self.ClassName]);
   FOR Idx:=0 TO (Count-1) DO
   BEGIN;
     Item:=TLocation(Items[Idx]);

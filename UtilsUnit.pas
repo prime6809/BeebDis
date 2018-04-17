@@ -14,6 +14,8 @@ FUNCTION PadToAdd(VAR ToPad	: STRING;
 	              NewLen	: INTEGER;
 		          ToAdd	    : STRING) : STRING;
 
+FUNCTION SwapWord(AWord : WORD) : WORD;
+
 implementation
 
 FUNCTION IsASCII(ToTest	: CHAR) : BOOLEAN;
@@ -41,6 +43,17 @@ BEGIN;
   ToPad:=ToPad+ToAdd;
 
   Result:=ToPad;
+END;
+
+FUNCTION SwapWord(AWord : WORD) : WORD;
+
+VAR MSB : BYTE;
+    LSB : BYTE;
+
+BEGIN;
+  MSB := (AWord AND $FF00) SHR 8;
+  LSB := (AWord AND $00FF);
+  Result:=(LSB SHL 8)+MSB;
 END;
 
 end.
