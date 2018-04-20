@@ -53,6 +53,7 @@ CONST
     KWNewSym        = 'newsym';
     KWNewPC         = 'newpc';
     KWCPU           = 'cpu';
+    KWOption        = 'option';
 
 implementation
 

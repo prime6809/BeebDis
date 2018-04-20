@@ -24,6 +24,7 @@ TYPE TCPUmemory = Class(TObject)
        FEndAddr		    : DWORD;
        FPC		        : DWORD;
        FLoaded		    : BOOLEAN;
+       FSwapWords       : BOOLEAN;
 
        FHexDump		    : TStringList;
        FFoundStrings	: TRamothStringList;
@@ -39,6 +40,7 @@ TYPE TCPUmemory = Class(TObject)
        PROPERTY Loaded		: BOOLEAN READ FLoaded;
        PROPERTY HexDump		: TStringList READ FHexDump;
        PROPERTY FoundStrings: TRamothStringList READ FFoundStrings;
+       PROPERTY SwapWords   : BOOLEAN READ FSwapWords WRITE FSwapWords;
 
        CONSTRUCTOR Create;
        DESTRUCTOR Destroy; override;
@@ -75,6 +77,7 @@ BEGIN;
   FBaseAddr:=0;
   FEndAddr:=0;
   FPC:=0;
+  FSwapWords:=FALSE;
   FHexDump:=TStringList.Create;
   FFoundStrings:=TRamothStringList.Create;
 END;
@@ -137,12 +140,18 @@ END;
 FUNCTION TCPUmemory.ReadWord(Flag : CHAR = NoChange) : WORD;
 
 BEGIN;
-  Result:=ReadByte(Flag)+(ReadByte(Flag)*$100);
+  IF (NOT FSwapWords) THEN
+    Result:=ReadByte(Flag)+(ReadByte(Flag)*$100)
+  ELSE
+    Result:=(ReadByte(Flag)*$100)+ReadByte(Flag);
 END;
 
 FUNCTION TCPUmemory.ReadDWord(Flag : CHAR = NoChange) : LongWord;
 BEGIN;
-  Result:=ReadWord(Flag)+(ReadWord(Flag)*$10000);
+  IF (NOT FSwapWords) THEN
+    Result:=ReadWord(Flag)+(ReadWord(Flag)*$10000)
+  ELSE
+    Result:=(ReadWord(Flag)*$10000)+ReadWord(Flag);
 END;
 
 FUNCTION TCPUmemory.ReadChar(Flag : CHAR = NoChange) : CHAR;
@@ -303,15 +312,12 @@ END;
 
 PROCEDURE TCPUmemory.FindInlineStrings(InlineAddr   : WORD);
 
-VAR	Found		    : STRING;
-   	Current		    : BYTE;
-    FirstCharPos    : WORD;
+VAR	Current		    : BYTE;
     TmpPC           : DWORD;
     JmpDest         : WORD;
 
 BEGIN;
   FPC:=FBaseAddr;
-  Found:='';
 
   FFoundStrings.Add('if(0)');
   FFoundStrings.Add('Begin:Inline Strings discovered');

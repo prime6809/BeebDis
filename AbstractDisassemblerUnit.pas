@@ -6,7 +6,7 @@ INTERFACE
 
 USES
   Classes, SysUtils,CPUMemoryUnit, SymbolListUnit,
-  MemoryListUnit,ConsoleUnit;
+  MemoryListUnit,ConsoleUnit,ParameterListUnit,BeebDisDefsUnit;
 
 CONST
     MinOpCode   = 0;
@@ -45,12 +45,15 @@ TYPE
       EntryPoints		: TSymbolList;
       Memory			: TCPUmemory;
       MemoryList		: TMemoryList;
+      Parameters        : TParameterList;
+
       PROPERTY Verbose 	: BOOLEAN READ FVerbose WRITE SetVerbose;
       PROPERTY CPU      : TCPU READ FCPU WRITE SetCPU;
 
       CONSTRUCTOR Create;
       DESTRUCTOR Destroy; override;
-      PROCEDURE Go; virtual; abstract;
+      PROCEDURE Go; virtual;
+
       FUNCTION ValidCPU(CPUType : TCPU) : BOOLEAN;
     END;
 
@@ -88,20 +91,14 @@ FUNCTION TADisassembler.CalcRelative8(RelOffset     : ShortInt) : WORD;
 
 BEGIN;
   { Relative branch calculate offset from PC }
-//  IF (RelOffset < $80) THEN
-    Result:=Memory.PC+(RelOffset)
-//  ELSE
-//    Result:=Memory.PC-256+RelOffset;
+  Result:=Memory.PC+(RelOffset)
 END;
 
 FUNCTION TADisassembler.CalcRelative16(RelOffset     : SmallInt) : WORD;
 
 BEGIN;
   { Relative branch calculate offset from PC }
-//  IF (RelOffset < $8000) THEN
     Result:=Memory.PC+(RelOffset)
-//  ELSE
-//    Result:=Memory.PC-32768+RelOffset;
 END;
 
 PROCEDURE TADisassembler.InitOpcodes;
@@ -111,6 +108,15 @@ VAR OpIdx   : INTEGER;
 BEGIN;
   FOR OpIdx:=MinOpCode TO MaxOpCode DO
     FOpCodes[OpIdx]:=NIL;
+END;
+
+PROCEDURE TADisassembler.Go;
+
+BEGIN;
+  InitOpcodes;
+  InitDirectives;
+  SymbolList.ImportFiles;
+  SymbolList.SafeAddAddress(Memory.BaseAddr,StartAddrLable);
 END;
 
 FUNCTION TADisassembler.ValidCPU(CPUType : TCPU) : BOOLEAN;

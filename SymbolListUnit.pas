@@ -7,7 +7,7 @@ unit SymbolListUnit;
 interface
 
 USES Types,Classes,Contnrs,SysUtils,fpexprpars,
-     ConsoleUnit,UtilsUnit,BeebDisDefsUnit;
+     ConsoleUnit,UtilsUnit,BeebDisDefsUnit,ParameterListUnit;
 
 TYPE
      TSymbolType	= (stLoaded, stGenerated, stAll);
@@ -26,10 +26,12 @@ TYPE
 
      TSymbolList = Class(TObjectList)
      PROTECTED
-       FVerbose	: BOOLEAN;
-       FName	: STRING;
-       FMaxAddr : DWORD;
-       FMinAddr	: DWORD;
+       FVerbose	    : BOOLEAN;
+       FName	    : STRING;
+       FMaxAddr     : DWORD;
+       FMinAddr	    : DWORD;
+       FParameters  : TParameterList;
+       FSymbolFiles : TStringList;
 
        FUNCTION GetAddressFromIndex(Index : INTEGER) : DWORD;
        FUNCTION GetSymbolFromIndex(Index : INTEGER) : STRING;
@@ -51,7 +53,9 @@ TYPE
        PROPERTY MinAddr				: DWORD READ FMinAddr;
        PROPERTY MaxAddr				: DWORD READ FMaxAddr;
 
-       CONSTRUCTOR Create(AName		: STRING);
+       CONSTRUCTOR Create(AName		    : STRING;
+                          Parameters    : TParameterList);
+       DESTRUCTOR Destroy; OVERRIDE;
        PROCEDURE SetRange(AMaxAddr	: DWORD;
 			              AMinAddr	: DWORD);
        PROCEDURE DeleteAddress(Address	: DWORD);
@@ -72,6 +76,8 @@ TYPE
        PROCEDURE SaveSymbolsToFile(AFileName	: STRING;
 				                   ASymbolType	: TSymbolType;
                                    Equate       : STRING);
+       PROCEDURE AddFile(AFileName  : STRING);
+       PROCEDURE ImportFiles;
      END;
 
 implementation
@@ -109,11 +115,12 @@ FUNCTION TSymbol.FormatSymbol(Column    : INTEGER;
                               Equate    : STRING) : STRING;
 
 BEGIN;
-  Result:=Format('%s',[Symbol]);
+  Result:=Format('%s ',[Symbol]);
   PadToAdd(Result,Column,Format('%s $%4.4X',[Equate,Address]));
 END;
 
-CONSTRUCTOR TSymbolList.Create(AName		: STRING);
+CONSTRUCTOR TSymbolList.Create(AName		: STRING;
+                               Parameters   : TParameterList);
 
 BEGIN;
   INHERITED Create;
@@ -121,6 +128,15 @@ BEGIN;
   FMaxAddr:=$FFFFFFFF;
   FMinAddr:=0;
   OwnsObjects:=TRUE;
+  FParameters:=Parameters;
+  FSymbolFiles:=TStringList.Create;
+END;
+
+DESTRUCTOR TSymbolList.Destroy;
+
+BEGIN;
+  FSymbolFiles.Free;
+  INHERITED Destroy;
 END;
 
 PROCEDURE TSymbolList.SetRange(AMaxAddr	: DWORD;
@@ -255,11 +271,13 @@ VAR	LabelFile	: TStringList;
     Address		: INTEGER;
     CommentPos  : INTEGER;
     FParser     : TFPExpressionParser;
+    EquateStr   : STRING;
 
 BEGIN;
   LabelFile:=TStringList.Create;
   FParser := TFPExpressionParser.Create(nil);
   TRY
+    EquateStr:=Format(' %s ',[FParameters[mlEquate]]);
     IF (FileExists(FileName)) THEN
     BEGIN;
       LabelFile.LoadFromFile(FileName);
@@ -274,6 +292,9 @@ BEGIN;
 
         Line:=StringReplace(Line,#9,' ',[rfReplaceAll,rfIgnoreCase]);
         Line:=StringReplace(Line,'&','$',[rfReplaceAll,rfIgnoreCase]);
+        Line:=StringReplace(Line,EquateStr,'=',[rfIgnoreCase]);
+
+        WriteLn(Line);
 
         SpacePos:=Pos('=',Line);
         IF (SpacePos>0) THEN
@@ -345,6 +366,7 @@ FUNCTION TSymbolList.InRange(First	: DWORD;
 			                 Last	: DWORD) : BOOLEAN;
 
 BEGIN;
+  Result:=FALSE;
 END;
 
 PROCEDURE TSymbolList.RemoveBlanks;
@@ -384,6 +406,23 @@ BEGIN;
   FINALLY
     OutList.Free;
   END;
+END;
+
+PROCEDURE TSymbolList.AddFile(AFileName  : STRING);
+
+BEGIN;
+  FSymbolFiles.Add(AFileName);
+END;
+
+PROCEDURE TSymbolList.ImportFiles;
+
+VAR FileNo  : INTEGER;
+
+BEGIN;
+  FOR FileNo:=0 TO (FSymbolFiles.Count-1) DO
+    LoadLabels(FSymbolFiles[FileNo]);
+
+  FSymbolFiles.Clear;
 END;
 
 end.

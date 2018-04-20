@@ -7,7 +7,8 @@ unit Disassembler6502Unit;
 interface
 
 USES Types,SysUtils,Classes,CPUMemoryUnit, SymbolListUnit,
-     MemoryListUnit,BeebDisDefsUnit,AbstractDisassemblerUnit;
+     MemoryListUnit,AbstractDisassemblerUnit,
+     ParameterListUnit;
 
 TYPE
     TBranch = (brNone,brRelative,brAbsolute,brRtsRti,brZPRelative);
@@ -66,7 +67,7 @@ PROCEDURE TDisassembler6502.Go;
 VAR	EntryPoint	: DWORD;
 
 BEGIN;
-  SymbolList.SafeAddAddress(Memory.BaseAddr,StartAddrLable);
+  INHERITED Go;
 
   {If no entry point is speccified, assume the base address}
   IF (EntryPoints.Count<1) THEN
@@ -452,7 +453,23 @@ END;
 PROCEDURE TDisassembler6502.InitDirectives;
 
 BEGIN
+  Parameters.Overwrite:=FALSE;
 
+  Parameters[mlLabelPrefix]:=   '.';
+  Parameters[mlLabelSuffix]:=   '';
+  Parameters[mlDefineByte]:=    'EQUB';
+  Parameters[mlDefineWord]:=    'EQUW';
+  Parameters[mlDefineDWord]:=   'EQUD';
+  Parameters[mlDefineString]:=  'EQUS';
+  Parameters[mlOrigin]:=        'org';
+  Parameters[mlBeginIgnore]:=   'if(0)';
+  Parameters[mlEndIgnore]:=     'endif';
+  Parameters[mlSaveCmd]:=       'SAVE';
+  Parameters[mlEquate]:=        '=';
+  Parameters[mlCommentChar]:=   ';';
+  Parameters[mlCommentCol]:=    '40';
+
+  Parameters.Overwrite:=TRUE;
 END;
 
 end.

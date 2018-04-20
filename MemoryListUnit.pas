@@ -7,26 +7,9 @@ unit MemoryListUnit;
 interface
 
 USES Types,SysUtils,Classes,Contnrs, CPUMemoryUnit, SymbolListUnit, UtilsUnit,
-     BeebDisDefsUnit,ConsoleUnit;
+     BeebDisDefsUnit,ConsoleUnit,ParameterListUnit;
 
-{ Constants for setting assembler output directives, these should be set by   }
-{ setting TMemoryList's Parameters.                                           }
-{ The defaults are useful for BeebASM, the Disassembler6809Unit changes these }
-{ to be the standard 6809 equivilents as used by the mamou assembler.         }
-{ In the future I may allow for these to be defined in the control file       }
-CONST
-    mlLabelPrefix   = 'LabelPrefix';    // e.g. the preiod before beebasm lables
-    mlLabelSuffix   = 'LabelSuffix';    // e.g. a colon after the lable
-                                        // token used to define :
-    mlDefineByte    = 'DefineByte';     // bytes : EQUB, FCB etc
-    mlDefineWord    = 'DefineWord';     // words : EQUW, FDB etc
-    mlDefineDWord   = 'DefineDWord';    // dwords : EQUD, FCD? etc
-    mlDefineString  = 'DefineString';   // strings : EQUS, FCC etc
-    mlOrigin        = 'Origin';         // the origin : ORG etc
-    mlEquate        = 'Equate';         // a symbol, =, EQU etc.
-    mlBeginIgnore   = 'BeginIgnore';    // beginning of an ignored block
-    mlEndIgnore     = 'EndIgnore';      // end of an ignored block
-    mlSaveCmd       = 'SaveCommand';    // the save command (just for beebasm currently)
+{Parameter definition strings now defined in ParameterListUnit }
 
 TYPE    TItemType = (tyCode, tyDataByte, tyDataWord, tyDataDWord, tyDataString,
 		             tyDataStringTerm,tyDataStringTermHi,tyDataStringTermHiZ,
@@ -41,6 +24,7 @@ TYPE    TItemType = (tyCode, tyDataByte, tyDataWord, tyDataDWord, tyDataString,
       Address	    : DWORD;	{ Address }
 	  Length	    : INTEGER;	{ Length of data }
 	  Text		    : STRING;	{ Disassembled text }
+      Comment       : STRING;   { Comment for line }
 	  NewLineAfter	: BOOLEAN;	{ Newline after this one ? }
 
       PROPERTY ItemType     : TItemType READ FItemType WRITE SetItemType;
@@ -50,7 +34,8 @@ TYPE    TItemType = (tyCode, tyDataByte, tyDataWord, tyDataDWord, tyDataString,
 			             PLength	: INTEGER;
 			             PText	    : STRING;
 			             PItemType	: TItemType;
-			             PNewLineA  : BOOLEAN); overload;
+			             PNewLineA  : BOOLEAN;
+                         PComment   : STRING);
       FUNCTION IsInRange(AAddress	: DWORD) : BOOLEAN;
 	  FUNCTION Split(AAddress	: DWORD;
 		             ALabel		: STRING) : TLocation;
@@ -79,35 +64,32 @@ TYPE    TItemType = (tyCode, tyDataByte, tyDataWord, tyDataDWord, tyDataString,
       FUNCTION GetPC : DWORD;
       PROCEDURE SetPC(NewPC : DWORD);
     PROTECTED
-      FParameters   : TStringList;
+      FParameters           : TParameterList;
 
       PROPERTY Locations[Which	: INTEGER] : TLocation READ GetLocation;
-
-      FUNCTION GetParam(Index   : STRING) : STRING;
-      PROCEDURE SetParam(Index  : STRING;
-                         Value  : STRING);
-      PROCEDURE InitParameters;
     PUBLIC
       OutputFileName	    : STRING;
+
 	  PROPERTY Listing      : TStringList READ GetListing;
       PROPERTY PC           : DWORD READ GetPC WRITE SetPC;
-      PROPERTY Parameters[Index : STRING] : STRING READ GetParam WRITE SetParam;
 
       CONSTRUCTOR Create(Memory	    : TCPUmemory;
 		                 Symbols	: TSymbolList;
-                         Entries	: TSymbolList);
+                         Entries	: TSymbolList;
+                         Parameters : TParameterList);
 	  PROCEDURE AddData(DataType	: TItemType;
 	                    Location	: STRING;
 		                Count	    : DWORD;
-                        Terminator	: BYTE = 0);
+                        Terminator	: BYTE = 0;
+                        Comment     : STRING = '');
       PROCEDURE AddCode(Location	: DWORD;
 		                Count	    : DWORD;
        		            CodeLine	: STRING;
-		                NewLine	    : BOOLEAN);
+		                NewLine	    : BOOLEAN;
+                        Comment     : STRING = '');
       PROCEDURE AddEntry(Location	: STRING);
       DESTRUCTOR Destroy; OVERRIDE;
       PROCEDURE Dump;
-
     END;
 
 implementation
@@ -119,7 +101,8 @@ CONSTRUCTOR TLocation.Create(PAddress	: DWORD;
 			                 PLength	: INTEGER;
 			                 PText	    : STRING;
 			                 PItemType	: TItemType;
-			                 PNewLineA  : BOOLEAN);
+			                 PNewLineA  : BOOLEAN;
+                             PComment   : STRING);
 
 BEGIN;
   INHERITED Create;
@@ -128,6 +111,7 @@ BEGIN;
   Text:=PText;
   ItemType:=PItemType;
   NewLineAfter:=PNewLineA;
+  Comment:=PComment;
 END;
 
 PROCEDURE TLocation.SetItemType(InType  : TItemType);
@@ -162,7 +146,7 @@ BEGIN;
   IF (IsInRange(AAddress)) THEN
   BEGIN;
     NewLength:=AAddress-Address;
-    Result:=TLocation.Create(AAddress,Length-NewLength,'',ItemType,NewLineAfter);
+    Result:=TLocation.Create(AAddress,Length-NewLength,'',ItemType,NewLineAfter,'');
     Length:=NewLength;
   END
   ELSE
@@ -216,57 +200,27 @@ BEGIN;
     Result:=0;
 END;
 
-CONSTRUCTOR TMemoryList.Create(Memory	: TCPUmemory;
-			                   Symbols	: TSymbolList;
-                               Entries	: TSymbolList);
+CONSTRUCTOR TMemoryList.Create(Memory	    : TCPUmemory;
+			                   Symbols	    : TSymbolList;
+                               Entries	    : TSymbolList;
+                               Parameters   : TParameterList);
 
 BEGIN;
   INHERITED Create;
   FListing:=TStringList.Create;
-  FParameters:=TStringList.Create;
+  FParameters:=Parameters;
   FMemory:=Memory;
   FSymbols:=Symbols;
   FEntryPoints:=Entries;
   OutputFileName:='';
   FDebug:=FALSE;
-  InitParameters;
 END;
 
 DESTRUCTOR TMemoryList.Destroy;
 
 BEGIN;
   FListing.Free;
-  FParameters.Free;
   INHERITED Destroy;
-END;
-
-FUNCTION TMemoryList.GetParam(Index   : STRING) : STRING;
-
-BEGIN;
-  Result:=FParameters.Values[Index];
-END;
-
-PROCEDURE TMemoryList.SetParam(Index  : STRING;
-                               Value  : STRING);
-
-BEGIN;
-  FParameters.Values[Index]:=Value;
-END;
-
-PROCEDURE TMemoryList.InitParameters;
-
-BEGIN;
-  Parameters[mlLabelPrefix]:=   '.';
-  Parameters[mlLabelSuffix]:=   '';
-  Parameters[mlDefineByte]:=    'EQUB';
-  Parameters[mlDefineWord]:=    'EQUW';
-  Parameters[mlDefineDWord]:=   'EQUD';
-  Parameters[mlDefineString]:=  'EQUS';
-  Parameters[mlOrigin]:=        'org';
-  Parameters[mlBeginIgnore]:=   'if(0)';
-  Parameters[mlEndIgnore]:=     'endif';
-  Parameters[mlSaveCmd]:=       'SAVE';
-  Parameters[mlEquate]:=        '=';
 END;
 
 FUNCTION TMemoryList.GetListing : TStringList;
@@ -286,7 +240,7 @@ BEGIN;
     IF ((FSymbols.Addresses[ItemNo]<FMemory.BaseAddr) OR
         (FSymbols.Addresses[ItemNo]>FMemory.EndAddr)) THEN
     BEGIN;
-      Flisting.Add(TSymbol(FSymbols.Items[ItemNo]).FormatSymbol(FirstColumn,Parameters[mlEquate]));
+      Flisting.Add(TSymbol(FSymbols.Items[ItemNo]).FormatSymbol(FirstColumn,FParameters[mlEquate]));
     END
     ELSE
     BEGIN;
@@ -302,7 +256,7 @@ BEGIN;
     Line:='';
     IF (ItemNo=0) THEN
     BEGIN;
-      PadToAdd(Line,FirstColumn,Parameters[mlOrigin]);
+      PadToAdd(Line,FirstColumn,FParameters[mlOrigin]);
       PadToAdd(Line,SecondColumn,Format('$%4.4X',[Item.Address]));
       Flisting.Add(Line);
     END;
@@ -310,7 +264,7 @@ BEGIN;
     CodeLabel:=FSymbols.GetSymbol(Item.Address,FALSE);
 
     IF (CodeLabel<>'') THEN
-      Flisting.Add(Format('%s%s%s',[Parameters[mlLabelPrefix],CodeLabel,Parameters[mlLabelSuffix]]));
+      Flisting.Add(Format('%s%s%s',[FParameters[mlLabelPrefix],CodeLabel,FParameters[mlLabelSuffix]]));
 
     IF (Item.ItemType=tyCode) THEN
       FListing.Add(FormatCode(Item))
@@ -319,9 +273,9 @@ BEGIN;
     ELSE
       FListing.Add(FormatData(Item));
   END;
-  FListing.Add(Parameters[mlLabelPrefix]+EndAddrLable+Parameters[mlLabelSuffix]);
+  FListing.Add(FParameters[mlLabelPrefix]+EndAddrLable+FParameters[mlLabelSuffix]);
   IF (OutputFileName<>'') THEN
-    FListing.Add(Format('%s "%s",%s,%s',[Parameters[mlSaveCmd],ChangeFileExt(OutputFileName,BinExt),StartAddrLable,EndAddrLable]));
+    FListing.Add(Format('%s "%s",%s,%s',[FParameters[mlSaveCmd],ChangeFileExt(OutputFileName,BinExt),StartAddrLable,EndAddrLable]));
   Result:=FListing;
 END;
 
@@ -334,7 +288,8 @@ END;
 PROCEDURE TMemoryList.AddData(DataType		: TItemType;
 		                      Location		: STRING;
 			                  Count		    : DWORD;
-                              Terminator	: BYTE = 0);
+                              Terminator	: BYTE = 0;
+                              Comment       : STRING = '');
 
 VAR ToAdd	    : TLocation;
     DataSize	: INTEGER;
@@ -347,9 +302,9 @@ BEGIN;
     WriteLnFmt('TMemoryList.AddData(%d,%s,%d,%d)',[Integer(DataType),Location,Count,Terminator]);
 
   IF (LowerCase(Location)=TokenPC) THEN
-    ToAdd:=TLocation.Create(FMemory.PC,Count,'',DataType,FALSE)
+    ToAdd:=TLocation.Create(FMemory.PC,Count,'',DataType,FALSE,Comment)
   ELSE
-    ToAdd:=TLocation.Create(StrTointDef(Location,0),Count,'',DataType,FALSE);
+    ToAdd:=TLocation.Create(StrTointDef(Location,0),Count,'',DataType,FALSE,Comment);
 
   //ItemSize:=GetItemSize(ToAdd);
   ItemSize:=ToAdd.GetItemSize;
@@ -401,7 +356,8 @@ END;
 PROCEDURE TMemoryList.AddCode(Location	: DWORD;
 			                  Count	    : DWORD;
           		              CodeLine	: STRING;
-			                  NewLine	: BOOLEAN);
+			                  NewLine	: BOOLEAN;
+                              Comment   : STRING = '');
 
 VAR ToAdd	: TLocation;
 
@@ -409,7 +365,7 @@ BEGIN;
   IF (FDebug) THEN
     WriteLnFmt('TMemoryList.AddCode($%4.4X,%d,%s,%s)',[Location,Count,CodeLine,BoolToStr(NewLine)]);
 
-  ToAdd:=TLocation.Create(Location,Count,CodeLine,tyCode,NewLine);
+  ToAdd:=TLocation.Create(Location,Count,CodeLine,tyCode,NewLine,Comment);
   Add(ToAdd);
 END;
 
@@ -543,7 +499,7 @@ BEGIN;
   Result:='';
   SpacePos:=Pos(' ',Item.Text);
 
-  IF (Item.Text[1]<>';') THEN
+  IF (Item.Text[1]<>FParameters[mlCommentChar]) THEN
   BEGIN;
     IF (SpacePos>0) THEN
     BEGIN;
@@ -561,6 +517,9 @@ BEGIN;
 
     IF (Oprands<>'') THEN
       PadToAdd(Result,SecondColumn,Oprands);
+
+    IF(Item.Comment<>'') THEN
+      PadToAddFmt(Result,FParameters.IntegerParameters[mlCommentCol],'%s %s',[FParameters[mlCommentChar],Item.Comment]);
 
     IF (Item.NewLineAfter) THEN
       Result:=Result+EOL;
@@ -582,18 +541,21 @@ BEGIN;
       FixupString(Item);
 
     CASE Item.ItemType OF
-      tyDataByte	        : Result:=Format('%s%s    %s',[IndentStr,Parameters[mlDefineByte],Item.Text]);
+      tyDataByte	        : Result:=Format('%s%s    %s',[IndentStr,FParameters[mlDefineByte],Item.Text]);
       tyDataWord,
-      tyDataWordEntry	    : Result:=Format('%s%s    %s',[IndentStr,Parameters[mlDefineWord],Item.Text]);
-      tyDataWordRTSEntry    : Result:=Format('%s%s    %s',[IndentStr,Parameters[mlDefineWord],Item.Text]);
-      tyDataDWord	        : Result:=Format('%s%s    %s',[IndentStr,Parameters[mlDefineDWord],Item.Text]);
+      tyDataWordEntry	    : Result:=Format('%s%s    %s',[IndentStr,FParameters[mlDefineWord],Item.Text]);
+      tyDataWordRTSEntry    : Result:=Format('%s%s    %s',[IndentStr,FParameters[mlDefineWord],Item.Text]);
+      tyDataDWord	        : Result:=Format('%s%s    %s',[IndentStr,FParameters[mlDefineDWord],Item.Text]);
       tyDataString,
       tyDataStringTerm,
       tyDataStringTermHi,
-      tyDataStringTermHiZ   : Result:=Format('%s%s    %s',[IndentStr,Parameters[mlDefineString],Item.Text]);
+      tyDataStringTermHiZ   : Result:=Format('%s%s    %s',[IndentStr,FParameters[mlDefineString],Item.Text]);
     END;
     IF(Result[Length(Result)]=',') THEN
       SetLength(Result,Length(Result)-1);
+
+    IF(Item.Comment<>'') THEN
+      PadToAddFmt(Result,FParameters.IntegerParameters[mlCommentCol],'%s %s',[FParameters[mlCommentChar],Item.Comment]);
 
     Result:=Result+Eol;
   END;
@@ -621,9 +583,6 @@ BEGIN;
   Found:=FALSE;
   SymbolAddress:=FSymbols.Addresses[SymbolNo];
   NewLocation:=NIL;
-
-  IF(SymbolAddress=$1082) THEN
-    WriteLn('Found');
 
   {Search for an exact match first!}
   WHILE (NOT Found AND (ItemNo<Count)) DO
@@ -681,8 +640,8 @@ BEGIN;
   WITH FSymbols DO
   BEGIN;
     GetSymbol(Location.Address);
-    Result:=TLocation.Create(SymbolAddress,0,'',tyCode,FALSE);
-    Result.Text:=Format('%s %s %s+%d',[GetSymbol(SymbolAddress),Parameters[mlEquate],GetSymbol(Location.Address),SymbolAddress-Location.Address]);
+    Result:=TLocation.Create(SymbolAddress,0,'',tyCode,FALSE,'');
+    Result.Text:=Format('%s %s %s+%d',[GetSymbol(SymbolAddress),FParameters[mlEquate],GetSymbol(Location.Address),SymbolAddress-Location.Address]);
     TSymbol(FSymbols.Items[SymbolNo]).Symbol:='';
   END;
 END;

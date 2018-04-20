@@ -7,7 +7,7 @@ INTERFACE
 USES
     Types,SysUtils,Classes,Contnrs, CPUMemoryUnit, SymbolListUnit,
     MemoryListUnit,AbstractDisassemblerUnit,
-    Disassembler6809Unit, ConsoleUnit;
+    Disassembler6809Unit, ConsoleUnit, ParameterListUnit;
 
 CONST
     Invalid = -1;
@@ -27,6 +27,7 @@ TYPE
       EntryPoints		: TSymbolList;
       Memory			: TCPUmemory;
       MemoryList		: TMemoryList;
+      Parameters        : TParameterList;
 
       PROPERTY Verbose 	: BOOLEAN READ FVerbose WRITE SetVerbose;
       PROPERTY CPU      : TCPU READ FCPU;
@@ -47,10 +48,11 @@ CONSTRUCTOR TMetaDisassembler.Create;
 
 BEGIN;
   INHERITED Create;
+  Parameters:=TParameterList.Create;
   Memory:=TCPUmemory.Create;
-  SymbolList:=TSymbolList.Create('SymbolList');
-  EntryPoints:=TSymbolList.Create('EntryPoints');
-  MemoryList:=TMemoryList.Create(Memory,SymbolList,EntryPoints);
+  SymbolList:=TSymbolList.Create('SymbolList',Parameters);
+  EntryPoints:=TSymbolList.Create('EntryPoints',Parameters);
+  MemoryList:=TMemoryList.Create(Memory,SymbolList,EntryPoints,Parameters);
   FSelected:=Invalid;
 END;
 
@@ -61,6 +63,7 @@ BEGIN;
   EntryPoints.Free;
   SymbolList.Free;
   Memory.Free;
+  Parameters.Free;
   INHERITED Destroy;
 END;
 
@@ -73,6 +76,7 @@ BEGIN;
     SymbolList:=Self.SymbolList;
     EntryPoints:=Self.EntryPoints;
     MemoryList:=Self.MemoryList;
+    Parameters:=Self.Parameters;
   END;
   INHERITED Add(ADisassembler);
 END;
@@ -140,7 +144,7 @@ PROCEDURE TMetaDisassembler.Go;
 
 BEGIN;
   IF (FSelected<>Invalid) THEN
-    TADisassembler(Items[FSelected]).Go;
+    TADisassembler(Self.Items[FSelected]).Go;
 END;
 
 PROCEDURE TMetaDisassembler.LoadFromFile(FileName	: STRING;

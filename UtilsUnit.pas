@@ -6,6 +6,8 @@ unit UtilsUnit;
 
 interface
 
+USES Classes,SysUtils;
+
 FUNCTION IsASCII(ToTest	: CHAR) : BOOLEAN;
 FUNCTION PadTo(VAR ToPad	: STRING;
 	           NewLen	    : INTEGER) : STRING;
@@ -13,6 +15,11 @@ FUNCTION PadTo(VAR ToPad	: STRING;
 FUNCTION PadToAdd(VAR ToPad	: STRING;
 	              NewLen	: INTEGER;
 		          ToAdd	    : STRING) : STRING;
+
+FUNCTION PadToAddFmt(VAR ToPad	: STRING;
+	                 NewLen	    : INTEGER;
+		             FormatStr  : STRING;
+                     ToAdd      : ARRAY OF CONST) : STRING;
 
 FUNCTION SwapWord(AWord : WORD) : WORD;
 
@@ -43,6 +50,15 @@ BEGIN;
   ToPad:=ToPad+ToAdd;
 
   Result:=ToPad;
+END;
+
+FUNCTION PadToAddFmt(VAR ToPad	: STRING;
+	                 NewLen	    : INTEGER;
+		             FormatStr  : STRING;
+                     ToAdd      : ARRAY OF CONST) : STRING;
+
+BEGIN;
+  Result:=PadToAdd(ToPad,NewLen,Format(FormatStr,ToAdd));
 END;
 
 FUNCTION SwapWord(AWord : WORD) : WORD;

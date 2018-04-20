@@ -7,7 +7,8 @@ unit Disassembler6809Unit;
 interface
 
 USES Types,SysUtils,Classes,CPUMemoryUnit, SymbolListUnit,UtilsUnit,
-     MemoryListUnit,BeebDisDefsUnit,ConsoleUnit,AbstractDisassemblerUnit;
+     MemoryListUnit,ConsoleUnit,AbstractDisassemblerUnit,
+     ParameterListUnit;
 
 CONST
     PreByte10       = $10;
@@ -25,13 +26,26 @@ CONST
     OpPULU          = $37;
     OpCWAI          = $3C;
 
+    {Executable format specifiers}
+    exeOS9Mod       = 'os9';            { OS9 module format}
+    exeDDos         = 'dragondos';      { DragonDos / DragonMMC executable file }
+
+    OS9Sync         = $87CD;            { OS9's module header identifier }
+    OS9HeadCLength  = $08;              { Number of bytes in OS9 header that are parity checked }
+
+    DDHeadStart     = $55;              { Dragon dos / DragonMMC executable header start marker }
+    DDHeadEnd       = $AA;              { Dragon dos / DragonMMC executable header end marker }
+    DDHeadLength    = $09;              { Dragon dos / DragonMMC executable header length }
+
+
 TYPE
     TAddressMode    = (amImmediate,     { oprand follows opcode in memory }
                        amDirect,        { Direct page, low byte of address follows }
                        amIndexed,       { Indexed by X,Y,U,S }
                        amExtended,      { 16 bit address of oprand follows }
                        amImplied,       { Oprand implied by opcode e.g. COMA }
-                       amRelative       { PC relative offset e.g. BRA, LBRA }
+                       amRelative,      { PC relative offset e.g. BRA, LBRA }
+                       amOS9            { OS9 function call decoding }
                        );
 
     TOpCode6809 = Class(TOpCode)
@@ -58,6 +72,10 @@ TYPE
       FUNCTION DecodePushPull   : STRING;
       FUNCTION DecodeImplied    : STRING;
       FUNCTION DecodeRelative   : STRING;
+      FUNCTION DecodeOS9Call    : STRING;
+
+      FUNCTION CheckOS9Header   : BOOLEAN;
+      FUNCTION CheckDDosHeader  : BOOLEAN;
 
       PROCEDURE DecodeInstruction;  override;
 	  PROCEDURE InitOpcodes;        override;
@@ -80,7 +98,6 @@ CONSTRUCTOR TDisassembler6809.Create;
 
 BEGIN;
   INHERITED Create;
-  InitOpcodes;
   Verbose:=FALSE;
   FCPU:=tc6809;
   FMinCPU:=tc6809;
@@ -92,14 +109,25 @@ DESTRUCTOR TDisassembler6809.Destroy;
 BEGIN;
   INHERITED Destroy;
 END;
-
 PROCEDURE TDisassembler6809.Go;
 
 VAR	EntryPoint	: DWORD;
 
 BEGIN;
-  InitDirectives;
-  SymbolList.SafeAddAddress(Memory.BaseAddr,StartAddrLable);
+  INHERITED Go;
+  Memory.SwapWords:=TRUE;
+
+  {OS9 uses SWI2 followed by a byte code to do it's function calls}
+  {If we are disassembling an OS9 module, then select this behavior}
+  IF (LowerCase(Parameters[parExecFormat])=exeOS9Mod) THEN
+  BEGIN;
+    MakeOpCode($103F,'OS9 %s',    1,amOS9);
+    CheckOS9Header;
+  END;
+
+  {Check for DragonDOS / DragonMMC executable}
+  IF (LowerCase(Parameters[parExecFormat])=exeDDos) THEN
+    CheckDDosHeader;
 
   {If no entry point is speccified, assume the base address}
   IF (EntryPoints.Count<1) THEN
@@ -147,7 +175,7 @@ BEGIN;
   ELSE
   BEGIN
     IWord:=Memory.ReadWord(IsDone);
-    TargetLable:=Format('%4.4X',[SwapWord(Iword)]);
+    TargetLable:=Format('%4.4X',[Iword]);
   END;
   Result:=Format(Op.OpStr,[TargetLable]);
 END;
@@ -217,7 +245,7 @@ BEGIN;
                 EffectiveStr:=Format('$%2.2X,%s',[ByteOffs,RegName]);
               END;
       $09   : BEGIN;
-                WordOffs:=SwapWord(Memory.ReadWord(IsDone));
+                WordOffs:=Memory.ReadWord(IsDone);
                 EffectiveStr:=Format('$%4.4X,%s',[WordOffs,RegName]);
               END;
       $0B   : EffectiveStr:=Format('D,%s',[RegName]);
@@ -226,11 +254,11 @@ BEGIN;
                 EffectiveStr:=Format('%s,PC',[GetTargetLable(Memory.PC+ByteOffs)]);
               END;
       $0D   : BEGIN;
-                WordOffs:=SwapWord(Memory.ReadWord(IsDone));
+                WordOffs:=Memory.ReadWord(IsDone);
                 EffectiveStr:=Format('%s,PC',[GetTargetLable(Memory.PC+WordOffs)]);
               END;
       $0F   : BEGIN;
-                WordOffs:=SwapWord(Memory.ReadWord(IsDone));
+                WordOffs:=Memory.ReadWord(IsDone);
                 EffectiveStr:=Format('$%4.4X',[WordOffs]);
               END;
       ELSE
@@ -250,7 +278,7 @@ FUNCTION TDisassembler6809.DecodeExtended   : STRING;
 VAR DestWord    : WORD;
 
 BEGIN;
-  DestWord:=SwapWord(Memory.ReadWord(IsDone));
+  DestWord:=Memory.ReadWord(IsDone);
   TargetLable:=SymbolList.GetSymbol(DestWord);
   Result:=Format(Op.OpStr,[TargetLable]);
   IF (Op.IsBranch) THEN
@@ -325,12 +353,255 @@ BEGIN;
   END
   ELSE
   BEGIN
-    BWord:=SwapWord(Memory.ReadWord(IsDone));
+    BWord:=Memory.ReadWord(IsDone);
     RelDest:=CalcRelative16(BWord);
   END;
   TargetLable:=SymbolList.GetSymbol(RelDest);
   EntryPoints.GetSymbol(RelDest);
   Result:=Format(Op.OpStr,[TargetLable]);
+END;
+
+FUNCTION TDisassembler6809.DecodeOS9Call    : STRING;
+
+VAR CallNo      : BYTE;
+
+BEGIN;
+  CallNo:=Memory.ReadByte(IsDone);
+
+  CASE CallNo OF
+    $00 : TargetLable:='F$Link';          { Link to Module }
+    $01 : TargetLable:='F$Load';          { Load Module from File }
+    $02 : TargetLable:='F$UnLink';        { Unlink Module }
+    $03 : TargetLable:='F$Fork';          { Start New Process }
+    $04 : TargetLable:='F$Wait';          { Wait for Child Process to Die }
+    $05 : TargetLable:='F$Chain';         { Chain Process to New Module }
+    $06 : TargetLable:='F$Exit';          { Terminate Process }
+    $07 : TargetLable:='F$Mem';           { Set Memory Size }
+    $08 : TargetLable:='F$Send';          { Send Signal to Process }
+    $09 : TargetLable:='F$Icpt';          { Set Signal Intercept }
+    $0A : TargetLable:='F$Sleep';         { Suspend Process }
+    $0B : TargetLable:='F$SSpd';          { Suspend Process }
+    $0C : TargetLable:='F$ID';            { Return Process ID }
+    $0D : TargetLable:='F$SPrior';        { Set Process Priority }
+    $0E : TargetLable:='F$SSWI';          { Set Software Interrupt }
+    $0F : TargetLable:='F$PErr';          { Print Error }
+    $10 : TargetLable:='F$PrsNam';        { Parse Pathlist Name }
+    $11 : TargetLable:='F$CmpNam';        { Compare Two Names }
+    $12 : TargetLable:='F$SchBit';        { Search Bit Map }
+    $13 : TargetLable:='F$AllBit';        { Allocate in Bit Map }
+    $14 : TargetLable:='F$DelBit';        { Deallocate in Bit Map }
+    $15 : TargetLable:='F$Time';          { Get Current Time }
+    $16 : TargetLable:='F$STime';         { Set Current Time }
+    $17 : TargetLable:='F$CRC';           { Generate CRC }
+    $18 : TargetLable:='F$GPrDsc';        { get Process Descriptor copy }
+    $19 : TargetLable:='F$GBlkMp';        { get System Block Map copy }
+    $1A : TargetLable:='F$GModDr';        { get Module Directory copy }
+    $1B : TargetLable:='F$CpyMem';        { Copy External Memory }
+    $1C : TargetLable:='F$SUser';         { Set User ID number }
+    $1D : TargetLable:='F$UnLoad';        { Unlink Module by name }
+    $1E : TargetLable:='F$Alarm';         { Color Computer Alarm Call (system wide) }
+    $1F : TargetLable:='invalid';
+    $20 : TargetLable:='invalid';
+    $21 : TargetLable:='F$NMLink';        { Color Computer NonMapping Link }
+    $22 : TargetLable:='F$NMLoad';        { Color Computer NonMapping Load }
+    $23 : TargetLable:='invalid';
+    $24 : TargetLable:='invalid';
+    $25 : TargetLable:='F$TPS';           { Return System's Ticks Per Second }
+    $26 : TargetLable:='F$TimAlm';        { COCO individual process alarm call }
+    $27 : TargetLable:='F$VIRQ';          { Install/Delete Virtual IRQ }
+    $28 : TargetLable:='F$SRqMem';        { System Memory Request }
+    $29 : TargetLable:='F$SRtMem';        { System Memory Return }
+    $2A : TargetLable:='F$IRQ';           { Enter IRQ Polling Table }
+    $2B : TargetLable:='F$IOQu';          { Enter I/O Queue }
+    $2C : TargetLable:='F$AProc';         { Enter Active Process Queue }
+    $2D : TargetLable:='F$NProc';         { Start Next Process }
+    $2E : TargetLable:='F$VModul';        { Validate Module }
+    $2F : TargetLable:='F$Find64';        { Find Process/Path Descriptor }
+    $30 : TargetLable:='F$All64';         { Allocate Process/Path Descriptor }
+    $31 : TargetLable:='F$Ret64';         { Return Process/Path Descriptor }
+    $32 : TargetLable:='F$SSvc';          { Service Request Table Initialization }
+    $33 : TargetLable:='F$IODel';         { Delete I/O Module }
+    $34 : TargetLable:='F$SLink';         { System Link }
+    $35 : TargetLable:='F$Boot';          { Bootstrap System }
+    $36 : TargetLable:='F$BtMem';         { Bootstrap Memory Request }
+    $37 : TargetLable:='F$GProcP';        { Get Process ptr }
+    $38 : TargetLable:='F$Move';          { Move Data (low bound first) }
+    $39 : TargetLable:='F$AllRAM';        { Allocate RAM blocks }
+    $3A : TargetLable:='F$AllImg';        { Allocate Image RAM blocks }
+    $3B : TargetLable:='F$DelImg';        { Deallocate Image RAM blocks }
+    $3C : TargetLable:='F$SetImg';        { Set Process DAT Image }
+    $3D : TargetLable:='F$FreeLB';        { Get Free Low Block }
+    $3E : TargetLable:='F$FreeHB';        { Get Free High Block }
+    $3F : TargetLable:='F$AllTsk';        { Allocate Process Task number }
+    $40 : TargetLable:='F$DelTsk';        { Deallocate Process Task number }
+    $41 : TargetLable:='F$SetTsk';        { Set Process Task DAT registers }
+    $42 : TargetLable:='F$ResTsk';        { Reserve Task number }
+    $43 : TargetLable:='F$RelTsk';        { Release Task number }
+    $44 : TargetLable:='F$DATLog';        { Convert DAT Block/Offset to Logical }
+    $45 : TargetLable:='F$DATTmp';        { Make temporary DAT image (Obsolete) }
+    $46 : TargetLable:='F$LDAXY';         { Load A [X;[Y]] }
+    $47 : TargetLable:='F$LDAXYP';        { Load A [X+;[Y]] }
+    $48 : TargetLable:='F$LDDDXY';        { Load D [D+X;[Y]] }
+    $49 : TargetLable:='F$LDABX';         { Load A from 0;X in task B }
+    $4A : TargetLable:='F$STABX';         { Store A at 0;X in task B }
+    $4B : TargetLable:='F$AllPrc';        { Allocate Process Descriptor }
+    $4C : TargetLable:='F$DelPrc';        { Deallocate Process Descriptor }
+    $4D : TargetLable:='F$ELink';         { Link using Module Directory Entry }
+    $4E : TargetLable:='F$FModul';        { Find Module Directory Entry }
+    $4F : TargetLable:='F$MapBlk';        { Map Specific Block }
+    $50 : TargetLable:='F$ClrBlk';        { Clear Specific Block }
+    $51 : TargetLable:='F$DelRAM';        { Deallocate RAM blocks }
+    $52 : TargetLable:='F$GCMDir';        { Pack module directory }
+    $53 : TargetLable:='F$AlHRam';        { Allocate HIGH RAM Blocks }
+
+    $70 : TargetLable:='F$RegDmp';        { Ron Lammardo's debugging register dump call }
+    $71 : TargetLable:='F$NVRAM';         { Non Volatile RAM (RTC battery backed static) read/write }
+
+    $80 : TargetLable:='I$Attach';        { Attach I/O Device }
+    $81 : TargetLable:='I$Detach';        { Detach I/O Device }
+    $82 : TargetLable:='I$Dup';           { Duplicate Path }
+    $83 : TargetLable:='I$Create';        { Create New File }
+    $84 : TargetLable:='I$Open';          { Open Existing File }
+    $85 : TargetLable:='I$MakDir';        { Make Directory File }
+    $86 : TargetLable:='I$ChgDir';        { Change Default Directory }
+    $87 : TargetLable:='I$Delete';        { Delete File }
+    $88 : TargetLable:='I$Seek';          { Change Current Position }
+    $89 : TargetLable:='I$Read';          { Read Data }
+    $8A : TargetLable:='I$Write';         { Write Data }
+    $8B : TargetLable:='I$ReadLn';        { Read Line of ASCII Data }
+    $8C : TargetLable:='I$WritLn';        { Write Line of ASCII Data }
+    $8D : TargetLable:='I$GetStt';        { Get Path Status }
+    $8E : TargetLable:='I$SetStt';        { Set Path Status }
+    $8F : TargetLable:='I$Close';         { Close Path }
+    $90 : TargetLable:='I$DeletX'         { Delete from current exec dir }
+  ELSE
+    TargetLable:='invalid';
+  END;
+  Result:=Format(Op.OpStr,[TargetLable]);
+END;
+
+{
+    Check for an OS9 module header in the format :
+    Offset  Size    Purpose
+    $00     $02     Sync bytes, should be $87CD
+    $02     $02     Module size in bytes
+    $04     $02     Module name offset
+    $06     $01     Module type (MSN) and language (LSN)
+    $07     $01     Attributes (MSN) and Revision (LSN)
+    $08     $01     Header parity check.
+    $09     $02     Execution offset
+    $0B     $02     Permanent storage size
+}
+
+FUNCTION TDisassembler6809.CheckOS9Header   : BOOLEAN;
+
+VAR MSync       : WORD;
+    MName       : WORD;
+    MParity     : BYTE;
+    MExec       : WORD;
+    PCount      : WORD;
+    Parity      : BYTE;
+    PComment    : STRING;
+
+BEGIN;
+  Memory.PC:=Memory.BaseAddr;
+
+  Parity:=$FF;
+  FOR PCount:=0 TO (OS9HeadCLength-1) DO
+    Parity:=Parity XOR Memory.ReadByte(NoChange);
+
+  Memory.PC:=Memory.BaseAddr;
+  MSync:=Memory.ReadWord(NoChange);
+
+  Result:=(MSync=OS9Sync);
+  IF (Result) THEN
+  BEGIN;
+           Memory.ReadWord(NoChange);
+    MName:=Memory.ReadWord(NoChange);
+           Memory.ReadByte(NoChange);
+           Memory.ReadByte(NoChange);
+    MParity:=Memory.ReadByte(NoChange);
+    MExec:=Memory.ReadWord(NoChange);
+           Memory.ReadWord(NoChange);
+
+    IF (Parity=MParity) THEN
+      PComment:='OS9 header parity check, valid'
+    ELSE
+      PComment:=Format('OS9 header parity check, Invalid! should be %2.2X',[Parity]);
+
+    Memory.PC:=Memory.BaseAddr;
+    MemoryList.AddData(tyDataWord,'pc',1,0,'OS9 module identifier');
+    MemoryList.AddData(tyDataWord,'pc',1,0,'OS9 module size');
+    MemoryList.AddData(tyDataWord,'pc',1,0,'OS9 name offset');
+    MemoryList.AddData(tyDataByte,'pc',1,0,'OS9 Type & Language');
+    MemoryList.AddData(tyDataByte,'pc',1,0,'OS9 Attributes and revision');
+    MemoryList.AddData(tyDataByte,'pc',1,0,PComment);
+    MemoryList.AddData(tyDataWord,'pc',1,0,'OS9 exec offset');
+    MemoryList.AddData(tyDataWord,'pc',1,0,'OS9 permanent storage size');
+
+    MemoryList.AddData(tyDataStringTermHi,IntToStr(Memory.BaseAddr+MName),0,0,'OS9 Module name');
+
+    EntryPoints.GetSymbol(Memory.BaseAddr+MExec);
+
+    Result:=TRUE;
+  END;
+END;
+
+{
+    Check for a DragonDos / DragonMMC header of the format :
+    Offset  Size    Purpose
+    $00     $01     Start marker, always $55
+    $01     $01     Filetype
+    $02     $02     Load address
+    $04     $02     Length
+    $06     $02     Exec address
+    $08     $01     End marker always $AA
+}
+
+FUNCTION TDisassembler6809.CheckDDosHeader  : BOOLEAN;
+
+VAR DDMarks     : BYTE;
+    DDMarke     : BYTE;
+    DDLoad      : WORD;
+    DDExec      : WORD;
+    CodeAddr    : DWORD;
+    LoadComment : STRING;
+
+BEGIN;
+  Memory.PC:=Memory.BaseAddr;
+
+  DDMarks:=     Memory.ReadByte(NoChange);
+                Memory.ReadByte(NoChange);
+  DDLoad:=      Memory.ReadWord(NoChange);
+                Memory.ReadWord(NoChange);
+  DDExec:=      Memory.ReadWord(NoChange);
+  DDMarke:=     Memory.ReadByte(NoChange);
+  CodeAddr:=    Memory.PC;
+
+  Result:=((DDMarks=DDHeadStart) AND (DDMarke=DDHeadEnd));
+
+  IF (Result) THEN
+  BEGIN;
+    Memory.PC:=Memory.BaseAddr;
+
+    IF (DDLoad = CodeAddr) THEN
+      LoadComment:='Load address'
+    ELSE
+      LoadComment:=Format('Error! loaded at wrong address, set load address to %4.4X in the control file',[DDLoad-DDHeadLength]);
+
+    MemoryList.AddData(tyDataByte,'pc',1,0,'DragonDos / Dragon MMC Executable header begins');
+    MemoryList.AddData(tyDataByte,'pc',1,0,'Filetype');
+    MemoryList.AddData(tyDataWord,'pc',1,0,LoadComment);
+    MemoryList.AddData(tyDataWord,'pc',1,0,'File length');
+    MemoryList.AddData(tyDataWord,'pc',1,0,'Execution address');
+    MemoryList.AddData(tyDataByte,'pc',1,0,'DragonDos / Dragon MMC Executable header ends');
+
+    IF (DDLoad = CodeAddr) THEN
+      EntryPoints.GetSymbol(DDExec)
+    ELSE
+      EntryPoints.GetSymbol(CodeAddr);
+
+  END;
 END;
 
 PROCEDURE TDisassembler6809.DecodeInstruction;
@@ -367,8 +638,9 @@ BEGIN;
       amIndexed     : Instruction:=DecodeIndexed;
       amRelative    : Instruction:=DecodeRelative;
       amImplied     : Instruction:=DecodeImplied;
+      amOS9         : Instruction:=DecodeOS9Call;
     ELSE
-      Instruction:=Format('; PC=%4.4X INVALID opcode %2.2x',[Location,OpCode]);
+      Instruction:=Format('%s PC=%4.4X INVALID opcode %2.2x',[Parameters[mlCommentChar],Location,OpCode]);
     END;
 
 //  IF (Op.Branch<>brRtsRti) THEN
@@ -381,7 +653,7 @@ BEGIN;
   END
   ELSE
   BEGIN
-    Instruction:=Format('; PC=%4.4X INVALID opcode %2.2x',[Location,OpCode]);
+    Instruction:=Format('%s PC=%4.4X INVALID opcode %2.2x',[Parameters[mlCommentChar],Location,OpCode]);
     MemoryList.AddCode(Location,1,Instruction,TRUE);
   END;
   IF (Verbose) THEN
@@ -654,7 +926,7 @@ BEGIN;
   MakeOpCode($F9,'ADCB %s',     3,amExtended);
   MakeOpCode($FA,'ORB %s',      3,amExtended);
   MakeOpCode($FB,'ADDB %s',     3,amExtended);
-  MakeOpCode($FC,'LDD %s',     3,amExtended);
+  MakeOpCode($FC,'LDD %s',      3,amExtended);
   MakeOpCode($FD,'STD %s',      3,amExtended);
   MakeOpCode($FE,'LDU %s',      3,amExtended);
   MakeOpCode($FF,'STU %s',      3,amExtended);
@@ -718,20 +990,23 @@ END;
 PROCEDURE TDisassembler6809.InitDirectives;
 
 BEGIN
-  WITH MemoryList DO
-  BEGIN
-    Parameters[mlLabelPrefix]:= '';
-    Parameters[mlLabelSuffix]:= '';
-    Parameters[mlDefineByte]:=  'FCB';
-    Parameters[mlDefineWord]:=  'FDB';
-    Parameters[mlDefineDWord]:= 'FQB';
-    Parameters[mlDefineString]:='FCC';
-    Parameters[mlOrigin]:=      'org';
-    Parameters[mlBeginIgnore]:= ' ifeq 1';
-    Parameters[mlEndIgnore]:=   ' endc';
-    Parameters[mlSaveCmd]:=     '; ';
-    Parameters[mlEquate]:=      'EQU';
-  END;
+  Parameters.Overwrite:=FALSE;
+
+  Parameters[mlLabelPrefix]:=   '';
+  Parameters[mlLabelSuffix]:=   '';
+  Parameters[mlDefineByte]:=    'FCB';
+  Parameters[mlDefineWord]:=    'FDB';
+  Parameters[mlDefineDWord]:=   'FQB';
+  Parameters[mlDefineString]:=  'FCC';
+  Parameters[mlOrigin]:=        'org';
+  Parameters[mlBeginIgnore]:=   ' ifeq 1';
+  Parameters[mlEndIgnore]:=     ' endc';
+  Parameters[mlSaveCmd]:=       '; ';
+  Parameters[mlEquate]:=        'EQU';
+  Parameters[mlCommentChar]:=   ';';
+  Parameters[mlCommentCol]:=    '40';
+
+  Parameters.Overwrite:=TRUE;
 END;
 
 end.

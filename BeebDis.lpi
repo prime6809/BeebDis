@@ -29,10 +29,10 @@
     <RunParams>
       <local>
         <FormatVersion Value="1"/>
-        <CommandLineParams Value="..\BeebDis_projects\6809-test1\flashf.ctl"/>
+        <CommandLineParams Value="..\BeebDis_projects\dragon-edit128\edit128.ctl"/>
       </local>
     </RunParams>
-    <Units Count="12">
+    <Units Count="13">
       <Unit0>
         <Filename Value="BeebDis.dpr"/>
         <IsPartOfProject Value="True"/>
@@ -82,6 +82,11 @@
         <IsPartOfProject Value="True"/>
         <UnitName Value="DisassemblersUnit"/>
       </Unit11>
+      <Unit12>
+        <Filename Value="parameterlistunit.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="ParameterListUnit"/>
+      </Unit12>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

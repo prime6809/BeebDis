@@ -6,19 +6,29 @@ program BeebDis;
 
 {$APPTYPE CONSOLE}
 
-{ 6502 Disassembler meant as a complement to BeebAsm }
-{ 2013-03-26 Phill Harvey-Smith }
+{ 6502 Disassembler meant as a complement to BeebAsm                          }
+{ 2013-03-26 Phill Harvey-Smith                                               }
+{                                                                             }
 { 2017-05-20 Fixed a bug where splitting a range of data addresses could lead }
 {       to data not turning up in output file. Address ranges will now only   }
 {       be split if the split point is a multiple of the data size for non    }
 {       byte length ranges.                                                   }
+{                                                                             }
 { 2018-02-23 merged in and modified fpexprpars from the main freepascal       }
 {       library. This is so that we can support expressions in the label file }
 {       such as those used in beebasm e.g. VAR2 = VAR1 + $100; etc            }
+{                                                                             }
 { 2018-04-10 Added options to scan for Acorn JSR inline strings. Also added   }
 {       ability to have repeated blocks of data in defined in the control     }
 {       file for defining data tables to be disassembled.                     }
 {       Added ability to set CPU type and disasseble 65c02/wd65c02 code.      }
+{                                                                             }
+{ 2018-04-17 Broke up dissassembler into CPU specific and generic types,      }
+{       where CPU specific type is a descendent of the abstract generic type. }
+{       Implemented a container for multiple disassembler types so that the   }
+{       CPU family to disassemble may be selected at runtime.                 }
+{       Implemented Motorola 6809 (and compatible) disassembly.               }
+{                                                                             }
 
 uses
   SysUtils,
@@ -33,10 +43,8 @@ uses
   Disassembler6809Unit in 'Disassembler6809Unit.pas',
   DisassemblersUnit in 'DisassemblersUnit.pas',
   UtilsUnit in 'UtilsUnit.pas',
-  BeebDisDefsUnit in 'BeebDisDefsUnit.pas';
-
-
-
+  BeebDisDefsUnit in 'BeebDisDefsUnit.pas',
+  ParameterListUnit in 'ParameterListUnit.pas';
 
 VAR Disassember	    : TMetaDisassembler;
 	ControlFile	    : TStringList;
@@ -74,6 +82,7 @@ END;
 PROCEDURE Finalize;
 
 BEGIN;
+  WriteLn(Disassember.Parameters.AsString);
   Disassember.Free;
   ControlFile.Free;
   OutputBuffer.Free;
@@ -140,6 +149,9 @@ REPEAT count            ; Repeat the following lines (up until endrepeat) the
                         ; extracting data structures like strings etc.
                         ; NOTE repeats cannot (currently) be nested.
 ENDREPEAT               ; Terminate a previous repeat.
+OPTION name value       ; Set parameter name = value both string, boolean values
+                        ; may be set with the values 'true' or 'false' or '1'
+                        ; or '0'
 ToDo :
 }
 
@@ -212,7 +224,6 @@ BEGIN;
     IF (InRepeat) THEN
       raise Exception.CreateFmt('Error: reached end of control file looking for %s',[KWEndRepeat]);
 
-    NewControl.SaveToFile('c:\tmp\newcontrol.txt');
     ControlFile.Clear;
     ControlFile.AddStrings(NewControl);
 
@@ -234,7 +245,7 @@ BEGIN;
             LoadFromFile(GetFileName(Split[2]),StrToIntDef(Split[1],0));
 
           IF (Keyword=KWSymbols) THEN
-            SymbolList.LoadLabels(GetFileName(Split[1]));
+            SymbolList.AddFile(GetFileName(Split[1]));
 
           IF (Keyword=KWSave) THEN
             MemoryList.OutputFilename:=CFilePath+Trim(Split[1]);
@@ -252,10 +263,7 @@ BEGIN;
             MemoryList.AddData(tyDataDWord,Split[1],StrToIntDef(Split[2],1));
 
           IF (Keyword=KWString) THEN
-          begin
-            //WriteLnFmt('Split[1]:%s Split[2]:%s',[Split[1],Split[2]]);
             MemoryList.AddData(tyDataString,Split[1],StrToIntDef(Split[2],0));
-          END;
 
           IF (Keyword=KWStringz) THEN
             MemoryList.AddData(tyDataStringTerm,Split[1],0,0);
@@ -301,6 +309,9 @@ BEGIN;
 
           IF (Keyword=KWNewPC) THEN
             MemoryList.PC:=StrToIntDef(Split[1],MemoryList.PC);
+
+          IF (Keyword=KWOption) THEN
+              Disassember.Parameters[Split[1]]:=Split[2];
         END;
       END;
 
@@ -333,8 +344,6 @@ begin
 
       Disassember.Go;
       OutputBuffer.Add(Disassember.MemoryList.Listing.Text);
-//Disassember.MemoryList.Dump;
-//WriteLn(Disassember.SymbolList.DumpList);
       with Disassember.Memory do
         HexDumpArea(BaseAddr,EndAddr,True);
 
@@ -346,15 +355,15 @@ begin
 
       IF (Options.BoolValues[OptStringScan]) THEN
       BEGIN
-        OutputBuffer.Add(Disassember.MemoryList.Parameters[mlBeginIgnore]);
+        OutputBuffer.Add(Disassember.Parameters[mlBeginIgnore]);
         OutputBuffer.Add(Disassember.Memory.FoundStrings.Text);
-        OutputBuffer.Add(Disassember.MemoryList.Parameters[mlEndIgnore]);
+        OutputBuffer.Add(Disassember.Parameters[mlEndIgnore]);
       END;
 
       IF (Options.BoolValues[OptNewSym]) THEN
         IF (Options.Values[OptNewSymFile]<>'') THEN
 	      Disassember.SymbolList.SaveSymbolsToFile(Options.Values[OptNewSymFile],stGenerated,
-                                                   Disassember.MemoryList.Parameters[mlEquate]);
+                                                   Disassember.Parameters[mlEquate]);
 
       IF (Disassember.MemoryList.OutputFilename<>'') THEN
         OutputBuffer.SaveToFile(Disassember.MemoryList.OutputFilename)
