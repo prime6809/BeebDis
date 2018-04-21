@@ -294,8 +294,6 @@ BEGIN;
         Line:=StringReplace(Line,'&','$',[rfReplaceAll,rfIgnoreCase]);
         Line:=StringReplace(Line,EquateStr,'=',[rfIgnoreCase]);
 
-        WriteLn(Line);
-
         SpacePos:=Pos('=',Line);
         IF (SpacePos>0) THEN
         BEGIN;

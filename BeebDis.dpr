@@ -76,13 +76,13 @@ END;
 PROCEDURE SignOn;
 
 BEGIN;
-  WriteLn(Format('BeebDis V%d.%2.2d 2018-04, Phill Harvey-Smith.',[Major,Minor]));
+  WriteLnFmt('BeebDis V%d.%2.2d 2018-04, Phill Harvey-Smith.',[Major,Minor]);
 END;
 
 PROCEDURE Finalize;
 
 BEGIN;
-  WriteLn(Disassember.Parameters.AsString);
+  //WriteLn(Disassember.Parameters.AsString);
   Disassember.Free;
   ControlFile.Free;
   OutputBuffer.Free;

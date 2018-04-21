@@ -137,9 +137,10 @@ BEGIN;
   BEGIN;
     EntryPoint:=EntryPoints.Addresses[0];
     SymbolList.SafeAddAddress(EntryPoint,'');
-WriteLn(Format('Disassembling %4.4X',[EntryPoint]));
+    IF (FVerbose) THEN
+      WriteLnFmt('Disassembling %4.4X',[EntryPoint]);
+
     Memory.PC:=EntryPoint;
-    //Memory.FlagCode(Memory.PC,1);
 
     WHILE (Memory.GetFlag=IsCode) DO
     BEGIN;
@@ -259,7 +260,7 @@ BEGIN;
               END;
       $0F   : BEGIN;
                 WordOffs:=Memory.ReadWord(IsDone);
-                EffectiveStr:=Format('$%4.4X',[WordOffs]);
+                EffectiveStr:=Format('%s',[GetTargetLable(WordOffs)]);
               END;
       ELSE
         EffectiveStr:=Format('Invalid indexed byte : $%2.2X',[IndexByte]);
@@ -656,7 +657,8 @@ BEGIN;
     Instruction:=Format('%s PC=%4.4X INVALID opcode %2.2x',[Parameters[mlCommentChar],Location,OpCode]);
     MemoryList.AddCode(Location,1,Instruction,TRUE);
   END;
-  IF (Verbose) THEN
+
+  IF (FVerbose) THEN
   BEGIN
     HexBytes:=Memory.HexDumpBytes(Location,Memory.PC-1);
     DebugStr:=Format('%4.4X %s ',[Location,HexBytes]);

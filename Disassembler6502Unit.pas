@@ -8,7 +8,7 @@ interface
 
 USES Types,SysUtils,Classes,CPUMemoryUnit, SymbolListUnit,
      MemoryListUnit,AbstractDisassemblerUnit,
-     ParameterListUnit;
+     ParameterListUnit,ConsoleUnit;
 
 TYPE
     TBranch = (brNone,brRelative,brAbsolute,brRtsRti,brZPRelative);
@@ -77,9 +77,10 @@ BEGIN;
   BEGIN;
     EntryPoint:=EntryPoints.Addresses[0];
     SymbolList.SafeAddAddress(EntryPoint,'');
-WriteLn(Format('Disassembling %4.4X',[EntryPoint]));
+    IF (FVerbose) THEN
+      WriteLnFmt('Disassembling %4.4X',[EntryPoint]);
+
     Memory.PC:=EntryPoint;
-    //Memory.FlagCode(Memory.PC,1);
 
     WHILE (Memory.GetFlag=IsCode) DO
     BEGIN;
@@ -121,7 +122,7 @@ BEGIN;
   ByteParam:=0;
   WordParam:=0;
 
-  if (Opcode=$60) THEN
+  if (FVerbose AND (Opcode=$60)) THEN
     WriteLn(Format('RTS at $%4.4X',[Location]));
 
   IF  ((Op<>NIL) AND (FCPU IN Op.CPU)) THEN

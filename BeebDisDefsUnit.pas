@@ -4,7 +4,7 @@ interface
 
 CONST
 	Major	= 1;
-	Minor	= 10;
+	Minor	= 20;
 
 {$IFDEF UNIX}
 	Eol		= #$0A;
