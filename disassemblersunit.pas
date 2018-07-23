@@ -19,9 +19,11 @@ TYPE
       FMax              : INTEGER;
       FVerbose          : BOOLEAN;
       FCPU              : TCPU;
+      FRadix            : BYTE;
 
       PROCEDURE SetVerbose(NewValue	: BOOLEAN);
       FUNCTION CPUNameToType(CPUName     : STRING) : TCPU;
+      PROCEDURE SetRadix(ARadix : BYTE);
     PUBLIC
       SymbolList		: TSymbolList;
       EntryPoints		: TSymbolList;
@@ -31,6 +33,7 @@ TYPE
 
       PROPERTY Verbose 	: BOOLEAN READ FVerbose WRITE SetVerbose;
       PROPERTY CPU      : TCPU READ FCPU;
+      PROPERTY Radix    : BYTE READ FRadix WRITE SetRadix;
 
       CONSTRUCTOR Create;
       DESTRUCTOR Destroy; override;
@@ -54,6 +57,7 @@ BEGIN;
   EntryPoints:=TSymbolList.Create('EntryPoints',Parameters);
   MemoryList:=TMemoryList.Create(Memory,SymbolList,EntryPoints,Parameters);
   FSelected:=Invalid;
+  FRadix:=DefRadix;
 END;
 
 DESTRUCTOR TMetaDisassembler.Destroy;
@@ -138,6 +142,17 @@ BEGIN;
   END;
 
   Result:=Valid;
+END;
+
+PROCEDURE TMetaDisassembler.SetRadix(ARadix : BYTE);
+
+VAR Idx : INTEGER;
+
+BEGIN;
+  FRadix:=ARadix;
+
+  FOR Idx:=0 TO (Count-1) DO
+    TADisassembler(Items[Idx]).Radix:=FRadix;
 END;
 
 PROCEDURE TMetaDisassembler.Go;

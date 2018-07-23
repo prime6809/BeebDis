@@ -71,5 +71,4 @@ BEGIN;
   LSB := (AWord AND $00FF);
   Result:=(LSB SHL 8)+MSB;
 END;
-
 end.

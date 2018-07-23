@@ -54,6 +54,7 @@ CONST
     KWNewPC         = 'newpc';
     KWCPU           = 'cpu';
     KWOption        = 'option';
+    KWRadix         = 'radix';
 
 implementation
 

@@ -45,7 +45,6 @@ CONSTRUCTOR TDisassembler6502.Create;
 
 BEGIN;
   INHERITED Create;
-  InitOpcodes;
   FCPU:=tc6502;
   FMinCPU:=tc6502;
   FMaxCPU:=tc6512;
@@ -76,7 +75,7 @@ BEGIN;
   WHILE (EntryPoints.Count>0) DO
   BEGIN;
     EntryPoint:=EntryPoints.Addresses[0];
-    SymbolList.SafeAddAddress(EntryPoint,'');
+    SymbolList.SafeAddAddress(EntryPoint,'',TRUE);
     IF (FVerbose) THEN
       WriteLnFmt('Disassembling %4.4X',[EntryPoint]);
 
@@ -163,11 +162,11 @@ BEGIN;
 
       IF (Op.Branch=brZPRelative) THEN
       BEGIN
-        TargetLable:=SymbolList.GetSymbol(TargetAddr);
-        ZPLabel:=SymbolList.GetSymbol(ByteParam);
+        TargetLable:=SymbolList.GetSymbol(TargetAddr,TRUE,1);
+        ZPLabel:=SymbolList.GetSymbol(ByteParam,TRUE,1);
       END
       ELSE IF (NOT IsImmediate) THEN
-        TargetLable:=SymbolList.GetSymbol(TargetAddr)
+        TargetLable:=SymbolList.GetSymbol(TargetAddr,TRUE,1)
       ELSE
         TargetLable:=Format('%2.2X',[ByteParam]);
 
@@ -220,8 +219,6 @@ END;
 PROCEDURE TDisassembler6502.InitOpcodes;
 
 BEGIN;
-  INHERITED Create;
-
   MakeOpCode($00,'BRK',		    0,[tc6502,tc65c02,tc65c02wd]);
   MakeOpCode($01,'ORA (%s,X)',	1,[tc6502,tc65c02,tc65c02wd]);
   MakeOpCode($04,'TSB %s',      1,[tc65c02,tc65c02wd]);
@@ -245,7 +242,7 @@ BEGIN;
   MakeOpCode($17,'RMB1 %s',     1,[tc65c02wd]);
   MakeOpCode($18,'CLC',		    0,[tc6502,tc65c02,tc65c02wd]);
   MakeOpCode($19,'ORA %s,Y',	2,[tc6502,tc65c02,tc65c02wd]);
-  MakeOpCode($1A,'INC',         0,[tc65c02,tc65c02wd]);
+  MakeOpCode($1A,'INC A',       0,[tc65c02,tc65c02wd]);
   MakeOpCode($1C,'TRB %s',      2,[tc65c02,tc65c02wd]);
   MakeOpCode($1D,'ORA %s,X',	2,[tc6502,tc65c02,tc65c02wd]);
   MakeOpCode($1E,'ASL %s,X',	2,[tc6502,tc65c02,tc65c02wd]);
@@ -274,7 +271,7 @@ BEGIN;
   MakeOpCode($37,'RMB3 %s',     1,[tc65c02wd]);
   MakeOpCode($38,'SEC',		    0,[tc6502,tc65c02,tc65c02wd]);
   MakeOpCode($39,'AND %s,Y',	2,[tc6502,tc65c02,tc65c02wd]);
-  MakeOpCode($3A,'DEC',         0,[tc65c02,tc65c02wd]);
+  MakeOpCode($3A,'DEC A',       0,[tc65c02,tc65c02wd]);
   MakeOpCode($3C,'BIT %s,X',    2,[tc65c02,tc65c02wd]);
   MakeOpCode($3D,'AND %s,X',	2,[tc6502,tc65c02,tc65c02wd]);
   MakeOpCode($3E,'ROL %s,X',	2,[tc6502,tc65c02,tc65c02wd]);
@@ -469,6 +466,10 @@ BEGIN
   Parameters[mlEquate]:=        '=';
   Parameters[mlCommentChar]:=   ';';
   Parameters[mlCommentCol]:=    '40';
+
+  Parameters[numBinPrefix]:=    '%';
+  Parameters[numOctPrefix]:=    '@';
+  Parameters[numHexPrefix]:=    '$';
 
   Parameters.Overwrite:=TRUE;
 END;

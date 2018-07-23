@@ -29,7 +29,7 @@
     <RunParams>
       <local>
         <FormatVersion Value="1"/>
-        <CommandLineParams Value="..\BeebDis_projects\dragon-edit128\edit128.ctl"/>
+        <CommandLineParams Value="..\BeebDis_projects\pcoder\comtel.cmd"/>
       </local>
     </RunParams>
     <Units Count="13">

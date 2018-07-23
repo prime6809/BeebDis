@@ -16,11 +16,16 @@ TYPE
        Symbol	: STRING;
        Address	: DWORD;
        SType	: TSymbolType;
+       RefCount : INTEGER;
+
        CONSTRUCTOR Create(ASymbol	: STRING;
        			          AAddress	: DWORD;
-       			          ASType	: TSymbolType);
+       			          ASType	: TSymbolType;
+                          ARefCount : INTEGER);
        FUNCTION FormatSymbol(Column	: INTEGER;
                              Equate : STRING) : STRING;
+
+       PROCEDURE IncRefCount(AIncrement : INTEGER = 1);
 
      END;
 
@@ -35,23 +40,25 @@ TYPE
 
        FUNCTION GetAddressFromIndex(Index : INTEGER) : DWORD;
        FUNCTION GetSymbolFromIndex(Index : INTEGER) : STRING;
-       FUNCTION AddAddress(Address	: DWORD;
-			               ALabel	: STRING;
-			               ASType	: TSymbolType = stGenerated) : STRING;
+       FUNCTION AddAddress(Address	    : DWORD;
+			               ALabel	    : STRING;
+			               ASType	    : TSymbolType = stGenerated;
+                           ARefCount    : INTEGER = 0) : STRING;
        FUNCTION IndexOfLabel(ALabel	: STRING) : INTEGER;
        FUNCTION IndexOfAddress(AAddress	: DWORD) : INTEGER;
 
        FUNCTION AddSymbol(ALabel	: STRING;
 			              AAddress	: DWORD;
-			              ASType	: TSymbolType = stGenerated) : INTEGER;
+			              ASType	: TSymbolType = stGenerated;
+                          ARefCount : INTEGER = 0) : INTEGER;
 
     PUBLIC
        PROPERTY Symbols[Index	: INTEGER]	: STRING READ GetSymbolFromIndex;
        PROPERTY Addresses[Index	: INTEGER] 	: DWORD READ GetAddressFromIndex;
-       PROPERTY Verbose 			: BOOLEAN READ FVerbose WRITE FVerbose;
-       PROPERTY Name				: STRING READ FName WRITE FName;
-       PROPERTY MinAddr				: DWORD READ FMinAddr;
-       PROPERTY MaxAddr				: DWORD READ FMaxAddr;
+       PROPERTY Verbose 			        : BOOLEAN READ FVerbose WRITE FVerbose;
+       PROPERTY Name				        : STRING READ FName WRITE FName;
+       PROPERTY MinAddr				        : DWORD READ FMinAddr;
+       PROPERTY MaxAddr				        : DWORD READ FMaxAddr;
 
        CONSTRUCTOR Create(AName		    : STRING;
                           Parameters    : TParameterList);
@@ -60,12 +67,18 @@ TYPE
 			              AMinAddr	: DWORD);
        PROCEDURE DeleteAddress(Address	: DWORD);
        FUNCTION SafeAddAddress(Address	: DWORD;
-			                   ALabel	: STRING) : STRING;
+			                   ALabel	: STRING;
+                               IsEntry  : BOOLEAN = FALSE) : STRING;
 
        FUNCTION GetSymbol(Address	: DWORD;
-			              CanCreate	: BOOLEAN = TRUE) : STRING;
-       FUNCTION GetSymbolValue(Address	: DWORD;
-       			               CanCreate: BOOLEAN = TRUE) : STRING;
+			              CanCreate	: BOOLEAN = TRUE;
+                          ARefCount : INTEGER = 0) : STRING;
+
+       FUNCTION GetSymbolValue(Address	    : DWORD;
+       			               CanCreate    : BOOLEAN = TRUE;
+                               ARefCount    : INTEGER = 0) : STRING;
+
+       FUNCTION GetSymbolRefs(Address	    : DWORD) : INTEGER;
 
        PROCEDURE LoadLabels(FileName	: STRING);
        FUNCTION DumpList : STRING;
@@ -100,15 +113,17 @@ BEGIN;
     Result:=0;
 END;
 
-CONSTRUCTOR TSymbol.Create(ASymbol	: STRING;
-       			           AAddress	: DWORD;
-       			           ASType	: TSymbolType);
+CONSTRUCTOR TSymbol.Create(ASymbol	    : STRING;
+       			           AAddress	    : DWORD;
+       			           ASType	    : TSymbolType;
+                           ARefCount    : INTEGER);
 
 BEGIN;
   INHERITED Create;
-  Self.Symbol:=ASymbol;
-  Self.Address:=AAddress;
-  Self.SType:=ASType;
+  Symbol:=ASymbol;
+  Address:=AAddress;
+  SType:=ASType;
+  RefCount:=ARefCount;
 END;
 
 FUNCTION TSymbol.FormatSymbol(Column    : INTEGER;
@@ -117,6 +132,12 @@ FUNCTION TSymbol.FormatSymbol(Column    : INTEGER;
 BEGIN;
   Result:=Format('%s ',[Symbol]);
   PadToAdd(Result,Column,Format('%s $%4.4X',[Equate,Address]));
+END;
+
+PROCEDURE TSymbol.IncRefCount(AIncrement : INTEGER = 1);
+
+BEGIN;
+  RefCount:=RefCount+AIncrement;
 END;
 
 CONSTRUCTOR TSymbolList.Create(AName		: STRING;
@@ -140,7 +161,7 @@ BEGIN;
 END;
 
 PROCEDURE TSymbolList.SetRange(AMaxAddr	: DWORD;
-			       AMinAddr	: DWORD);
+			                   AMinAddr	: DWORD);
 
 BEGIN;
   FMaxAddr:=AMaxAddr;
@@ -174,20 +195,24 @@ BEGIN;
   Result:=ItemNo;
 END;
 
-FUNCTION TSymbolList.AddSymbol(ALabel	: STRING;
-			                   AAddress	: DWORD;
-			                   ASType	: TSymbolType = stGenerated) : INTEGER;
+FUNCTION TSymbolList.AddSymbol(ALabel	    : STRING;
+			                   AAddress	    : DWORD;
+			                   ASType	    : TSymbolType = stGenerated;
+                               ARefCount    : INTEGER = 0) : INTEGER;
 
 VAR	ToAdd	: TSymbol;
 
 BEGIN;
-  ToAdd:=TSymbol.Create(ALabel,AAddress,ASType);
+  ToAdd:=TSymbol.Create(ALabel,AAddress,ASType,ARefCount);
   Result:=Add(ToAdd);
 END;
 
-FUNCTION TSymbolList.AddAddress(Address	: DWORD;
-			   	                ALabel	: STRING;
-				                ASType	: TSymbolType = stGenerated) : STRING;
+FUNCTION TSymbolList.AddAddress(Address	    : DWORD;
+			   	                ALabel	    : STRING;
+				                ASType	    : TSymbolType = stGenerated;
+                                ARefCount   : INTEGER = 0) : STRING;
+
+VAR SymIndex : INTEGER;
 
 BEGIN;
   Result:='';
@@ -197,29 +222,38 @@ BEGIN;
     IF (ALabel='') THEN
       ALabel:=Format('L%4.4X',[Address]);
 
-    IF (IndexOfLabel(ALabel)<0) THEN
+    SymIndex:=IndexOfLabel(ALabel);
+    IF (SymIndex<0) THEN
     BEGIN;
-      AddSymbol(ALabel,Address,ASType);
+      SymIndex:=AddSymbol(ALabel,Address,ASType,ARefCount);
 
       IF (Verbose) THEN
         WriteLnFmt('%s:Label %s Address %4.4x',[FName,ALabel,Address]);
 
-      Result:=TSymbol(Items[IndexOfAddress(Address)]).Symbol;
-    END;
+      Result:=TSymbol(Items[SymIndex]).Symbol;
+    END
+    ELSE
+      TSymbol(Items[SymIndex]).IncRefCount;
   END
 END;
 
 FUNCTION TSymbolList.SafeAddAddress(Address	: DWORD;
-			                        ALabel	: STRING) : STRING;
+			                        ALabel	: STRING;
+                                    IsEntry : BOOLEAN) : STRING;
 
 VAR	SymbolIndex	: INTEGER;
 
 BEGIN;
   SymbolIndex:=IndexOfAddress(Address);
-  IF (SymbolIndex >= 0) THEN
-    Result:=Symbols[SymbolIndex]
-  ELSE
-    Result:=AddAddress(Address,ALabel);
+
+  IF (SymbolIndex < 0) THEN
+    AddAddress(Address,ALabel);
+
+  SymbolIndex:=IndexOfAddress(Address);
+  IF (IsEntry) THEN
+    TSymbol(Items[SymbolIndex]).IncRefCount(1);
+
+  Result:=Symbols[SymbolIndex];
 END;
 
 PROCEDURE TSymbolList.DeleteAddress(Address	: DWORD);
@@ -234,30 +268,48 @@ BEGIN;
 END;
 
 FUNCTION TSymbolList.GetSymbol(Address		: DWORD;
-			                   CanCreate	: BOOLEAN = TRUE) : STRING;
+			                   CanCreate	: BOOLEAN = TRUE;
+                               ARefCount    : INTEGER = 0) : STRING;
 
 VAR	SymbolIndex	: INTEGER;
 
 BEGIN;
   SymbolIndex:=IndexOfAddress(Address);
   IF (SymbolIndex >= 0) THEN
-    Result:=Symbols[SymbolIndex]
+  BEGIN
+    Result:=Symbols[SymbolIndex];
+    TSymbol(Items[SymbolIndex]).IncRefCount(ARefCount);
+  END
   ELSE
   BEGIN;
     IF (CanCreate) THEN
-      Result:=AddAddress(Address,'')
+      Result:=AddAddress(Address,'',stGenerated,ARefCount)
     ELSE
       Result:='';
   END;
 END;
 
 FUNCTION TSymbolList.GetSymbolValue(Address	    : DWORD;
-       			                    CanCreate	: BOOLEAN = TRUE) : STRING;
+       			                    CanCreate	: BOOLEAN = TRUE;
+                                    ARefCount   : INTEGER = 0) : STRING;
 
 BEGIN;
   Result:=GetSymbol(Address,CanCreate);
   IF(Result='') THEN
     Result:=Format('$%4.4X',[Address]);
+END;
+
+FUNCTION TSymbolList.GetSymbolRefs(Address	    : DWORD) : INTEGER;
+
+VAR	SymbolIndex	: INTEGER;
+
+BEGIN;
+  SymbolIndex:=IndexOfAddress(Address);
+
+  IF (SymbolIndex >= 0) THEN
+    Result:=TSymbol(Items[SymbolIndex]).RefCount
+  ELSE
+    Result:=0;
 END;
 
 PROCEDURE TSymbolList.LoadLabels(FileName	: STRING);

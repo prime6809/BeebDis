@@ -5,12 +5,13 @@ UNIT AbstractDisassemblerUnit;
 INTERFACE
 
 USES
-  Classes, SysUtils,CPUMemoryUnit, SymbolListUnit,
+  Classes, SysUtils,CPUMemoryUnit, SymbolListUnit, StrUtils,
   MemoryListUnit,ConsoleUnit,ParameterListUnit,BeebDisDefsUnit;
 
 CONST
     MinOpCode   = 0;
     MaxOpCode   = $FFFF;
+    DefRadix    = 10;
 
 
 TYPE
@@ -32,6 +33,7 @@ TYPE
       FCPU      : TCPU;
       FMaxCPU   : TCPU;
       FMinCPU   : TCPU;
+      FRadix    : BYTE;
 
       FUNCTION CalcRelative8(RelOffset     : Shortint) : WORD;
       FUNCTION CalcRelative16(RelOffset     : Smallint) : WORD;
@@ -40,6 +42,12 @@ TYPE
       PROCEDURE InitDirectives;      virtual; abstract;
       PROCEDURE SetVerbose(NewValue	: BOOLEAN);
       PROCEDURE SetCPU(CPUType  : TCPU);
+      PROCEDURE SetRadix(ARadix : BYTE);
+      FUNCTION FormatInvalid(ALocation  : WORD;
+                             AOpCode    : WORD;
+                             ABytes     : BYTE = 1) : STRING;
+      FUNCTION FormatNum(ANumber        : CARDINAL;
+                         APlaces        : INTEGER) : STRING;
     PUBLIC
       SymbolList		: TSymbolList;
       EntryPoints		: TSymbolList;
@@ -49,6 +57,7 @@ TYPE
 
       PROPERTY Verbose 	: BOOLEAN READ FVerbose WRITE SetVerbose;
       PROPERTY CPU      : TCPU READ FCPU WRITE SetCPU;
+      PROPERTY Radix    : BYTE READ FRadix WRITE SetRadix;
 
       CONSTRUCTOR Create;
       DESTRUCTOR Destroy; override;
@@ -69,10 +78,13 @@ END;
 
 CONSTRUCTOR TADisassembler.Create;
 
+
+
 BEGIN;
   INHERITED Create;
   FVerbose:=FALSE;
   FCPU:=tcInvalid;
+  FRadix:=DefRadix;
 END;
 
 DESTRUCTOR TADisassembler.Destroy;
@@ -116,7 +128,7 @@ BEGIN;
   InitOpcodes;
   InitDirectives;
   SymbolList.ImportFiles;
-  SymbolList.SafeAddAddress(Memory.BaseAddr,StartAddrLable);
+  SymbolList.SafeAddAddress(Memory.BaseAddr,StartAddrLable,FALSE);
 END;
 
 FUNCTION TADisassembler.ValidCPU(CPUType : TCPU) : BOOLEAN;
@@ -130,5 +142,41 @@ BEGIN;
   IF (ValidCPU(CPUType)) THEN
     FCPU:=CPUType;
 END;
+
+PROCEDURE TADisassembler.SetRadix(ARadix : BYTE);
+
+BEGIN;
+  IF (ARadix IN [2,8,10,16]) THEN
+    FRadix:=ARadix;
+END;
+
+FUNCTION TADisassembler.FormatInvalid(ALocation  : WORD;
+                                      AOpCode    : WORD;
+                                      ABytes     : BYTE = 1) : STRING;
+
+BEGIN;
+  IF (ABytes=1) THEN
+    Result:=Format('%s    $%2.2X    %s PC=%4.4X INVALID opcode %2.2x',
+                  [Parameters[mlDefineByte],(AOpCode AND $0FF),
+                   Parameters[mlCommentChar],ALocation,AOpCode])
+  ELSE
+      Result:=Format('%s    $%4.4X    %s PC=%4.4X INVALID opcode %2.2x',
+                  [Parameters[mlDefineWord],AOpCode,
+                   Parameters[mlCommentChar],ALocation,AOpCode])
+END;
+
+FUNCTION TADisassembler.FormatNum(ANumber        : CARDINAL;
+                                  APlaces        : INTEGER) : STRING;
+
+BEGIN;
+  Result:=Dec2Numb(ANumber,APlaces,FRadix);
+  CASE FRadix OF
+    2   : Result:=Parameters[numBinPrefix]+Result+Parameters[numBinSuffix];
+    8   : Result:=Parameters[numOctPrefix]+Result+Parameters[numOctSuffix];
+    10  : Result:=Parameters[numDecPrefix]+Result+Parameters[numDecSuffix];
+    16  : Result:=Parameters[numHexPrefix]+Result+Parameters[numHexSuffix];
+  END;
+END;
+
 
 end.

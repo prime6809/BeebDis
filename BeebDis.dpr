@@ -132,7 +132,7 @@ STRINGHIZ addr          ; String data until either a zero byte or a byte with
                         ; high bit set.
 ENTRY addr        	    ; Code entry point
 WORDENTRY addr count	; Use words at addr as entrypoints.
-WORDRTS addr count      ; Like wordentry but word pussed onto stack and jumped
+WORDRTS addr count      ; Like wordentry but word pushed onto stack and jumped
                         ; to by rts, point to lable-1.
 HEXDUMP			        ; Add a hexdump to the end of the output
 STRINGSCAN		        ; Scan for strings output them in the listing
@@ -152,6 +152,7 @@ ENDREPEAT               ; Terminate a previous repeat.
 OPTION name value       ; Set parameter name = value both string, boolean values
                         ; may be set with the values 'true' or 'false' or '1'
                         ; or '0'
+RADIX 2 | 8 | 10 | 16   ; Set the default radix for number output.
 ToDo :
 }
 
@@ -312,6 +313,9 @@ BEGIN;
 
           IF (Keyword=KWOption) THEN
               Disassember.Parameters[Split[1]]:=Split[2];
+
+          IF (Keyword=KWRadix) THEN
+            Disassember.Radix:=StrToIntDef(Split[1],DefRadix);
         END;
       END;
 

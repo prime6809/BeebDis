@@ -8,7 +8,7 @@ interface
 
 USES Types,SysUtils,Classes,CPUMemoryUnit, SymbolListUnit,UtilsUnit,
      MemoryListUnit,ConsoleUnit,AbstractDisassemblerUnit,
-     ParameterListUnit;
+     ParameterListUnit,StrUtils;
 
 CONST
     PreByte10       = $10;
@@ -62,6 +62,7 @@ TYPE
       TargetLable	: STRING;
       TargetAddr    : WORD;
       IndexByte     : BYTE;
+      CommentStr    : STRING;
 
       FUNCTION GetTargetLable(ATargetAddr   : WORD) : STRING;
 
@@ -136,7 +137,7 @@ BEGIN;
   WHILE (EntryPoints.Count>0) DO
   BEGIN;
     EntryPoint:=EntryPoints.Addresses[0];
-    SymbolList.SafeAddAddress(EntryPoint,'');
+    SymbolList.SafeAddAddress(EntryPoint,'',TRUE);
     IF (FVerbose) THEN
       WriteLnFmt('Disassembling %4.4X',[EntryPoint]);
 
@@ -159,7 +160,7 @@ END;
 FUNCTION TDisassembler6809.GetTargetLable(ATargetAddr   : WORD) : STRING;
 
 BEGIN
-  Result:=SymbolList.GetSymbol(ATargetAddr);
+  Result:=SymbolList.GetSymbol(ATargetAddr,True,1);
 END;
 
 FUNCTION TDisassembler6809.DecodeImmediate  : STRING;
@@ -188,7 +189,7 @@ VAR DPByte  : BYTE;
 BEGIN;
   {GetDP ref}
   DPByte:=Memory.ReadByte(IsDone);
-  TargetLable:=SymbolList.GetSymbol(DPByte);
+  TargetLable:=SymbolList.GetSymbol(DPByte,TRUE,1);
   Result:=Format(Op.OpStr,[TargetLable]);
   IF (Op.IsBranch) THEN
     EntryPoints.GetSymbol(DPByte);
@@ -198,7 +199,7 @@ FUNCTION TDisassembler6809.DecodeIndexed    : STRING;
 
 CONST
     RegMask         = $60;
-    IndeirectMask   = $10;
+    IndirectMask    = $10;
     IndexModeMask   = $0F;
     FiveBitMask     = $80;
 
@@ -207,8 +208,8 @@ VAR RegSelect       : BYTE;
     EffectiveStr    : STRING;
     RegName         : STRING;
     IndexMode       : BYTE;
-    ByteOffs        : BYTE;
-    WordOffs        : WORD;
+    ByteOffs        : Shortint;
+    WordOffs        : SmallInt;
 
 BEGIN;
   IndexByte:=Memory.ReadByte(IsDone);
@@ -243,20 +244,20 @@ BEGIN;
       $06   : EffectiveStr:=Format('A,%s',[RegName]);
       $08   : BEGIN;
                 ByteOffs:=Memory.ReadByte(IsDone);
-                EffectiveStr:=Format('$%2.2X,%s',[ByteOffs,RegName]);
+                EffectiveStr:=Format('%d,%s',[ByteOffs,RegName]);
               END;
       $09   : BEGIN;
                 WordOffs:=Memory.ReadWord(IsDone);
-                EffectiveStr:=Format('$%4.4X,%s',[WordOffs,RegName]);
+                EffectiveStr:=Format('%d,%s',[WordOffs,RegName]);
               END;
       $0B   : EffectiveStr:=Format('D,%s',[RegName]);
       $0C   : BEGIN;
                 ByteOffs:=Memory.ReadByte(IsDone);
-                EffectiveStr:=Format('%s,PC',[GetTargetLable(Memory.PC+ByteOffs)]);
+                EffectiveStr:=Format('%s,PCR',[GetTargetLable(CalcRelative8(ByteOffs))]);
               END;
       $0D   : BEGIN;
                 WordOffs:=Memory.ReadWord(IsDone);
-                EffectiveStr:=Format('%s,PC',[GetTargetLable(Memory.PC+WordOffs)]);
+                EffectiveStr:=Format('%s,PCR',[GetTargetLable(CalcRelative16(WordOffs))]);
               END;
       $0F   : BEGIN;
                 WordOffs:=Memory.ReadWord(IsDone);
@@ -267,7 +268,7 @@ BEGIN;
     END;
 
     {Indirect mode only applies here}
-    IF (((IndexByte AND IndeirectMask) = IndeirectMask) AND NOT (IndexMode IN [0,2])) THEN
+    IF (((IndexByte AND IndirectMask) = IndirectMask) AND NOT (IndexMode IN [0,2])) THEN
       EffectiveStr:='['+EffectiveStr+']';
   END;
 
@@ -280,7 +281,7 @@ VAR DestWord    : WORD;
 
 BEGIN;
   DestWord:=Memory.ReadWord(IsDone);
-  TargetLable:=SymbolList.GetSymbol(DestWord);
+  TargetLable:=SymbolList.GetSymbol(DestWord,TRUE,1);
   Result:=Format(Op.OpStr,[TargetLable]);
   IF (Op.IsBranch) THEN
     EntryPoints.GetSymbol(DestWord);
@@ -311,6 +312,9 @@ BEGIN;
     IF ((PostByte AND $04)=$04) THEN RegList.Add('B');
     IF ((PostByte AND $02)=$02) THEN RegList.Add('A');
     IF ((PostByte AND $01)=$01) THEN RegList.Add('CC');
+
+    IF ((PostByte AND $80)=$80) THEN
+      CommentStr:='Pull of PC, effective RTS';
 
     Result:=Format(Op.OpStr,[RegList.CommaText]);
   FINALLY
@@ -357,7 +361,7 @@ BEGIN;
     BWord:=Memory.ReadWord(IsDone);
     RelDest:=CalcRelative16(BWord);
   END;
-  TargetLable:=SymbolList.GetSymbol(RelDest);
+  TargetLable:=SymbolList.GetSymbol(RelDest,TRUE,1);
   EntryPoints.GetSymbol(RelDest);
   Result:=Format(Op.OpStr,[TargetLable]);
 END;
@@ -531,16 +535,16 @@ BEGIN;
       PComment:=Format('OS9 header parity check, Invalid! should be %2.2X',[Parity]);
 
     Memory.PC:=Memory.BaseAddr;
-    MemoryList.AddData(tyDataWord,'pc',1,0,'OS9 module identifier');
-    MemoryList.AddData(tyDataWord,'pc',1,0,'OS9 module size');
-    MemoryList.AddData(tyDataWord,'pc',1,0,'OS9 name offset');
-    MemoryList.AddData(tyDataByte,'pc',1,0,'OS9 Type & Language');
-    MemoryList.AddData(tyDataByte,'pc',1,0,'OS9 Attributes and revision');
-    MemoryList.AddData(tyDataByte,'pc',1,0,PComment);
-    MemoryList.AddData(tyDataWord,'pc',1,0,'OS9 exec offset');
-    MemoryList.AddData(tyDataWord,'pc',1,0,'OS9 permanent storage size');
+    MemoryList.AddData(tyDataWord,'pc',1,0,'OS9 module identifier',1);
+    MemoryList.AddData(tyDataWord,'pc',1,0,'OS9 module size',0);
+    MemoryList.AddData(tyDataWord,'pc',1,0,'OS9 name offset',0);
+    MemoryList.AddData(tyDataByte,'pc',1,0,'OS9 Type & Language',0);
+    MemoryList.AddData(tyDataByte,'pc',1,0,'OS9 Attributes and revision',0);
+    MemoryList.AddData(tyDataByte,'pc',1,0,PComment,0);
+    MemoryList.AddData(tyDataWord,'pc',1,0,'OS9 exec offset',0);
+    MemoryList.AddData(tyDataWord,'pc',1,0,'OS9 permanent storage size',0);
 
-    MemoryList.AddData(tyDataStringTermHi,IntToStr(Memory.BaseAddr+MName),0,0,'OS9 Module name');
+    MemoryList.AddData(tyDataStringTermHi,IntToStr(Memory.BaseAddr+MName),0,0,'OS9 Module name',1);
 
     EntryPoints.GetSymbol(Memory.BaseAddr+MExec);
 
@@ -590,12 +594,12 @@ BEGIN;
     ELSE
       LoadComment:=Format('Error! loaded at wrong address, set load address to %4.4X in the control file',[DDLoad-DDHeadLength]);
 
-    MemoryList.AddData(tyDataByte,'pc',1,0,'DragonDos / Dragon MMC Executable header begins');
-    MemoryList.AddData(tyDataByte,'pc',1,0,'Filetype');
-    MemoryList.AddData(tyDataWord,'pc',1,0,LoadComment);
-    MemoryList.AddData(tyDataWord,'pc',1,0,'File length');
-    MemoryList.AddData(tyDataWord,'pc',1,0,'Execution address');
-    MemoryList.AddData(tyDataByte,'pc',1,0,'DragonDos / Dragon MMC Executable header ends');
+    MemoryList.AddData(tyDataByte,'pc',1,0,'DragonDos / Dragon MMC Executable header begins',1);
+    MemoryList.AddData(tyDataByte,'pc',1,0,'Filetype',0);
+    MemoryList.AddData(tyDataWord,'pc',1,0,LoadComment,0);
+    MemoryList.AddData(tyDataWord,'pc',1,0,'File length',0);
+    MemoryList.AddData(tyDataWord,'pc',1,0,'Execution address',0);
+    MemoryList.AddData(tyDataByte,'pc',1,0,'DragonDos / Dragon MMC Executable header ends',0);
 
     IF (DDLoad = CodeAddr) THEN
       EntryPoints.GetSymbol(DDExec)
@@ -621,6 +625,7 @@ BEGIN;
 
   {Fetch the opcode, and look it up}
   OpCode:=Memory.ReadByte(IsDone);
+  OpPost:=0;
 
   {Instruction is prefixed by a pre-byte, deal with it}
   IF (OpCode IN [PreByte10, PreByte11]) THEN
@@ -628,6 +633,8 @@ BEGIN;
     OpPost:=Memory.ReadByte(IsDone);
     OpCode:=(OpCode SHL 8) OR OpPost;
   END;
+
+  CommentStr:='';
 
   Op:=TOpCode6809(FOpCodes[OpCode]);
   IF (Op<>NIL) THEN
@@ -641,20 +648,27 @@ BEGIN;
       amImplied     : Instruction:=DecodeImplied;
       amOS9         : Instruction:=DecodeOS9Call;
     ELSE
-      Instruction:=Format('%s PC=%4.4X INVALID opcode %2.2x',[Parameters[mlCommentChar],Location,OpCode]);
+      IF (OpPost<>0) THEN
+        Instruction:=FormatInvalid(Location,OpCode,2)
+      ELSE
+        Instruction:=FormatInvalid(Location,OpCode,1);
     END;
 
 //  IF (Op.Branch<>brRtsRti) THEN
     BEGIN;
       IF (NOT Op.IsBranch) THEN
-        MemoryList.AddCode(Location,Op.OpBytes+1,Instruction,FALSE)
+        MemoryList.AddCode(Location,Op.OpBytes+1,Instruction,FALSE,CommentStr)
       ELSE
-        MemoryList.AddCode(Location,Op.OpBytes+1,Instruction,TRUE);
+        MemoryList.AddCode(Location,Op.OpBytes+1,Instruction,TRUE,CommentStr);
     END;
   END
   ELSE
   BEGIN
-    Instruction:=Format('%s PC=%4.4X INVALID opcode %2.2x',[Parameters[mlCommentChar],Location,OpCode]);
+    IF (OpPost<>0) THEN
+      Instruction:=FormatInvalid(Location,OpCode,2)
+    ELSE
+      Instruction:=FormatInvalid(Location,OpCode,1);
+
     MemoryList.AddCode(Location,1,Instruction,TRUE);
   END;
 
@@ -1007,6 +1021,10 @@ BEGIN
   Parameters[mlEquate]:=        'EQU';
   Parameters[mlCommentChar]:=   ';';
   Parameters[mlCommentCol]:=    '40';
+
+  Parameters[numBinPrefix]:=    '%';
+  Parameters[numOctPrefix]:=    '@';
+  Parameters[numHexPrefix]:=    '$';
 
   Parameters.Overwrite:=TRUE;
 END;

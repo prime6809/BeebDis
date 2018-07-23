@@ -81,16 +81,20 @@ TYPE    TItemType = (tyCode, tyDataByte, tyDataWord, tyDataDWord, tyDataString,
 	                    Location	: STRING;
 		                Count	    : DWORD;
                         Terminator	: BYTE = 0;
-                        Comment     : STRING = '');
+                        Comment     : STRING = '';
+                        ARefCount   : INTEGER = 0);
       PROCEDURE AddCode(Location	: DWORD;
 		                Count	    : DWORD;
        		            CodeLine	: STRING;
 		                NewLine	    : BOOLEAN;
-                        Comment     : STRING = '');
+                        Comment     : STRING = '';
+                        ARefCount   : INTEGER = 0);
       PROCEDURE AddEntry(Location	: STRING);
       DESTRUCTOR Destroy; OVERRIDE;
       PROCEDURE Dump;
     END;
+
+
 
 implementation
 
@@ -263,7 +267,7 @@ BEGIN;
     {Get symbol for this address if any}
     CodeLabel:=FSymbols.GetSymbol(Item.Address,FALSE);
 
-    IF (CodeLabel<>'') THEN
+    IF ((CodeLabel<>'') AND (FSymbols.GetSymbolRefs(Item.Address)<>0)) THEN
       Flisting.Add(Format('%s%s%s',[FParameters[mlLabelPrefix],CodeLabel,FParameters[mlLabelSuffix]]));
 
     IF (Item.ItemType=tyCode) THEN
@@ -289,7 +293,8 @@ PROCEDURE TMemoryList.AddData(DataType		: TItemType;
 		                      Location		: STRING;
 			                  Count		    : DWORD;
                               Terminator	: BYTE = 0;
-                              Comment       : STRING = '');
+                              Comment       : STRING = '';
+                              ARefCount     : INTEGER = 0);
 
 VAR ToAdd	    : TLocation;
     DataSize	: INTEGER;
@@ -299,7 +304,8 @@ VAR ToAdd	    : TLocation;
 
 BEGIN;
   IF (FDebug) THEN
-    WriteLnFmt('TMemoryList.AddData(%d,%s,%d,%d)',[Integer(DataType),Location,Count,Terminator]);
+    WriteLnFmt('TMemoryList.AddData(%d,%s,%d,%d,%s,%d)',
+                [Integer(DataType),Location,Count,Terminator,Comment,ARefCount]);
 
   IF (LowerCase(Location)=TokenPC) THEN
     ToAdd:=TLocation.Create(FMemory.PC,Count,'',DataType,FALSE,Comment)
@@ -357,7 +363,8 @@ PROCEDURE TMemoryList.AddCode(Location	: DWORD;
 			                  Count	    : DWORD;
           		              CodeLine	: STRING;
 			                  NewLine	: BOOLEAN;
-                              Comment   : STRING = '');
+                              Comment   : STRING = '';
+                              ARefCount : INTEGER = 0);
 
 VAR ToAdd	: TLocation;
 
@@ -376,9 +383,9 @@ BEGIN;
     WriteLnFmt('TMemoryList.AddEntry(%s)',[Location]);
 
   IF (LowerCase(Location)=TokenPC) THEN
-    FEntryPoints.SafeAddAddress(FMemory.PC,'')
+    FEntryPoints.SafeAddAddress(FMemory.PC,'',TRUE)
   ELSE
-    FEntryPoints.SafeAddAddress(StrToIntDef(Location,0),'');
+    FEntryPoints.SafeAddAddress(StrToIntDef(Location,0),'',TRUE);
 END;
 
 FUNCTION TMemoryList.FixupString(Item	: TLocation) : STRING;
@@ -641,7 +648,7 @@ BEGIN;
   BEGIN;
     GetSymbol(Location.Address);
     Result:=TLocation.Create(SymbolAddress,0,'',tyCode,FALSE,'');
-    Result.Text:=Format('%s %s %s+%d',[GetSymbol(SymbolAddress),FParameters[mlEquate],GetSymbol(Location.Address),SymbolAddress-Location.Address]);
+    Result.Text:=Format('%s %s %s+%d',[GetSymbol(SymbolAddress),FParameters[mlEquate],GetSymbol(Location.Address,TRUE,1),SymbolAddress-Location.Address]);
     TSymbol(FSymbols.Items[SymbolNo]).Symbol:='';
   END;
 END;

@@ -28,7 +28,18 @@ CONST
     mlSaveCmd       = 'SaveCommand';    // the save command (just for beebasm currently)
     mlCommentChar   = 'CommentChar';    // Character used to start a comment
     mlCommentCol    = 'CommentCol';     // (minimum) Column to start comments
+
+    numBinPrefix    = 'BinPrefix';      // Binary prefix (if any).
+    numBinSuffix    = 'BinSuffix';      // Binary prefix (if any).
+    numOctPrefix    = 'OctPrefix';      // Octal prefix (if any).
+    numOctSuffix    = 'OctSuffix';      // Octal  prefix (if any).
+    numDecPrefix    = 'DecPrefix';      // Decimal prefix (if any).
+    numDecSuffix    = 'DecSuffix';      // Decimal prefix (if any).
+    numHexPrefix    = 'HexPrefix';      // Hexidecimal prefix (if any).
+    numHexSuffix    = 'HexSuffix';      // Hexidecimal prefix (if any).
+
     parExecFormat   = 'ExecFormat';     // Executable format to load
+    parRadix        = 'Radix';          // Radix for output numbers
 
 TYPE
     TParameterList = class(TObject)
