@@ -76,8 +76,7 @@ BEGIN;
   BEGIN;
     EntryPoint:=EntryPoints.Addresses[0];
     SymbolList.SafeAddAddress(EntryPoint,'',TRUE);
-    IF (FVerbose) THEN
-      WriteLnFmt('Disassembling %4.4X',[EntryPoint]);
+    WriteLnFmtV(FVerbosity,VBVerbose,'Disassembling %4.4X',[EntryPoint]);
 
     Memory.PC:=EntryPoint;
 
@@ -121,8 +120,8 @@ BEGIN;
   ByteParam:=0;
   WordParam:=0;
 
-  if (FVerbose AND (Opcode=$60)) THEN
-    WriteLn(Format('RTS at $%4.4X',[Location]));
+  if (Opcode=$60) THEN
+    WriteLnFmtV(FVerbosity,VBVerbose,'RTS at $%4.4X',[Location]);
 
   IF  ((Op<>NIL) AND (FCPU IN Op.CPU)) THEN
   BEGIN;

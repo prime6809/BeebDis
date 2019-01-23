@@ -29,7 +29,7 @@
     <RunParams>
       <local>
         <FormatVersion Value="1"/>
-        <CommandLineParams Value="..\BeebDis_projects\pcoder\comtel.cmd"/>
+        <CommandLineParams Value="..\BeebDis_projects\mcmon\mcmon.ctl"/>
       </local>
     </RunParams>
     <Units Count="13">

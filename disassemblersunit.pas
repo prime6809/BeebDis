@@ -17,11 +17,11 @@ TYPE
     PROTECTED
       FSelected         : INTEGER;
       FMax              : INTEGER;
-      FVerbose          : BOOLEAN;
+      FVerbosity        : BYTE;
       FCPU              : TCPU;
       FRadix            : BYTE;
 
-      PROCEDURE SetVerbose(NewValue	: BOOLEAN);
+      PROCEDURE SetVerbosity(NewValue	: BYTE);
       FUNCTION CPUNameToType(CPUName     : STRING) : TCPU;
       PROCEDURE SetRadix(ARadix : BYTE);
     PUBLIC
@@ -31,7 +31,7 @@ TYPE
       MemoryList		: TMemoryList;
       Parameters        : TParameterList;
 
-      PROPERTY Verbose 	: BOOLEAN READ FVerbose WRITE SetVerbose;
+      PROPERTY Verbosity: BYTE READ FVerbosity WRITE SetVerbosity;
       PROPERTY CPU      : TCPU READ FCPU;
       PROPERTY Radix    : BYTE READ FRadix WRITE SetRadix;
 
@@ -85,7 +85,7 @@ BEGIN;
   INHERITED Add(ADisassembler);
 END;
 
-PROCEDURE TMetaDisassembler.SetVerbose(NewValue	: BOOLEAN);
+{PROCEDURE TMetaDisassembler.SetVerbose(NewValue	: BOOLEAN);
 
 VAR Idx : INTEGER;
 
@@ -96,6 +96,18 @@ BEGIN;
 
   FOR Idx:=0 TO (Count-1) DO
     TADisassembler(Items[Idx]).Verbose:=NewValue;
+END; }
+PROCEDURE TMetaDisassembler.SetVerbosity(NewValue	: BYTE);
+
+VAR Idx : INTEGER;
+
+BEGIN;
+  FVerbosity:=NewValue;
+  EntryPoints.Verbosity:=NewValue;
+  SymbolList.Verbosity:=NewValue;
+
+  FOR Idx:=0 TO (Count-1) DO
+    TADisassembler(Items[Idx]).Verbosity:=NewValue;
 END;
 
 FUNCTION TMetaDisassembler.CPUNameToType(CPUName     : STRING) : TCPU;
@@ -138,6 +150,7 @@ BEGIN;
   BEGIN;
     FSelected:=Idx;
     TADisassembler(Items[FSelected]).CPU:=CPUType;
+    Memory.SwapWords:=TADisassembler(Items[FSelected]).SwapWords;
     FCPU:=CPUType;
   END;
 
@@ -168,8 +181,7 @@ PROCEDURE TMetaDisassembler.LoadFromFile(FileName	: STRING;
 BEGIN;
   Memory.LoadFromFile(FileName,PBaseAddr);
   EntryPoints.SetRange(Memory.EndAddr,Memory.BaseAddr);
-  IF (FVerbose) THEN
-    WriteLnFmt('Loaded %s at $%4.4X - $%4.4X',[FileName,Memory.BaseAddr,Memory.EndAddr]);
+  WriteLnFmtV(FVerbosity,VBNormal,'Loaded %s at $%4.4X - $%4.4X',[FileName,Memory.BaseAddr,Memory.EndAddr]);
 END;
 
 END.

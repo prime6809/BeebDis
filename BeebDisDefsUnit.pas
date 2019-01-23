@@ -4,7 +4,7 @@ interface
 
 CONST
 	Major	= 1;
-	Minor	= 20;
+	Minor	= 25;
 
 {$IFDEF UNIX}
 	Eol		= #$0A;
@@ -18,7 +18,6 @@ CONST
     EndAddrLable  	= 'BeebDisEndAddr';
 	BinExt		    = '.bin';
     TokenPC		    = 'pc';
-
 
 	OptHexDump	    = 'HexDump';
 	OptHexDumpFile	= 'HexDumpFile';
@@ -55,6 +54,7 @@ CONST
     KWCPU           = 'cpu';
     KWOption        = 'option';
     KWRadix         = 'radix';
+    KWVerbose       = 'verbose';
 
 implementation
 

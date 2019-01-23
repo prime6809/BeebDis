@@ -99,10 +99,11 @@ CONSTRUCTOR TDisassembler6809.Create;
 
 BEGIN;
   INHERITED Create;
-  Verbose:=FALSE;
+  Verbosity:=VBNormal;
   FCPU:=tc6809;
   FMinCPU:=tc6809;
   FMaxCPU:=tc6809;
+  FSwapWords:=TRUE;
 END;
 
 DESTRUCTOR TDisassembler6809.Destroy;
@@ -138,8 +139,7 @@ BEGIN;
   BEGIN;
     EntryPoint:=EntryPoints.Addresses[0];
     SymbolList.SafeAddAddress(EntryPoint,'',TRUE);
-    IF (FVerbose) THEN
-      WriteLnFmt('Disassembling %4.4X',[EntryPoint]);
+    WriteLnFmtV(FVerbosity,VBVerbose,'Disassembling %4.4X',[EntryPoint]);
 
     Memory.PC:=EntryPoint;
 
@@ -172,12 +172,14 @@ BEGIN;
   IF (Op.OpBytes = 1) THEN
   BEGIN
     IByte:=Memory.ReadByte(IsDone);
-    TargetLable:=Format('%2.2X',[Ibyte]);
+    TargetLable:=Format('$%2.2X',[Ibyte]);
   END
   ELSE
   BEGIN
     IWord:=Memory.ReadWord(IsDone);
-    TargetLable:=Format('%4.4X',[Iword]);
+    TargetLable:=SymbolList.GetSymbol(IWord,FALSE,1);
+    IF (TargetLable='') THEN
+      TargetLable:=Format('$%4.4X',[Iword]);
   END;
   Result:=Format(Op.OpStr,[TargetLable]);
 END;
@@ -672,7 +674,7 @@ BEGIN;
     MemoryList.AddCode(Location,1,Instruction,TRUE);
   END;
 
-  IF (FVerbose) THEN
+  IF (FVerbosity=VBVerbose) THEN
   BEGIN
     HexBytes:=Memory.HexDumpBytes(Location,Memory.PC-1);
     DebugStr:=Format('%4.4X %s ',[Location,HexBytes]);
@@ -728,8 +730,8 @@ BEGIN;
   MakeOpCode($16,'LBRA %s',     2,amRelative,[tc6809],TRUE);
   MakeOpCode($17,'LBSR %s',     2,amRelative,[tc6809],TRUE);
   MakeOpCode($19,'DAA',         0,amImplied);
-  MakeOpCode($1A,'ORCC #$%s',   1,amImmediate);
-  MakeOpCode($1C,'ANDCC #$%s',  1,amImmediate);
+  MakeOpCode($1A,'ORCC #%s',    1,amImmediate);
+  MakeOpCode($1C,'ANDCC #%s',   1,amImmediate);
   MakeOpCode($1D,'SEX',         0,amImplied);
   MakeOpCode($1E,'EXG %s',      1,amImplied);
   MakeOpCode($1F,'TFR %s',      1,amImplied);
@@ -762,7 +764,7 @@ BEGIN;
   MakeOpCode($39,'RTS',         0,amImplied);
   MakeOpCode($3A,'ABX',         0,amImplied);
   MakeOpCode($3B,'RTI',         0,amImplied);
-  MakeOpCode($3C,'CWAI %s',     1,amImplied);
+  MakeOpCode($3C,'CWAI #$%s',   1,amImplied);
   MakeOpCode($3D,'MUL',         0,amImplied);
   MakeOpCode($3F,'SWI',         0,amImplied);
 
@@ -816,20 +818,20 @@ BEGIN;
   MakeOpCode($7E,'JMP %s',      2,amExtended,[tc6809],TRUE);
   MakeOpCode($7F,'CLR %s',      2,amExtended);
 
-  MakeOpCode($80,'SUBA #$%s',   1,amImmediate);
-  MakeOpCode($81,'CMPA #$%s',   1,amImmediate);
-  MakeOpCode($82,'SBCA #$%s',   1,amImmediate);
-  MakeOpCode($83,'SUBD #$%s',   2,amImmediate);
-  MakeOpCode($84,'ANDA #$%s',   1,amImmediate);
-  MakeOpCode($85,'BITA #$%s',   1,amImmediate);
-  MakeOpCode($86,'LDA #$%s',    1,amImmediate);
-  MakeOpCode($88,'EORA #$%s',   1,amImmediate);
-  MakeOpCode($89,'ADCA #$%s',   1,amImmediate);
-  MakeOpCode($8A,'ORA #$%s',    1,amImmediate);
-  MakeOpCode($8B,'ADDA #$%s',   1,amImmediate);
-  MakeOpCode($8C,'CMPX #$%s',   2,amImmediate);
+  MakeOpCode($80,'SUBA #%s',    1,amImmediate);
+  MakeOpCode($81,'CMPA #%s',    1,amImmediate);
+  MakeOpCode($82,'SBCA #%s',    1,amImmediate);
+  MakeOpCode($83,'SUBD #%s',    2,amImmediate);
+  MakeOpCode($84,'ANDA #%s',    1,amImmediate);
+  MakeOpCode($85,'BITA #%s',    1,amImmediate);
+  MakeOpCode($86,'LDA #%s',     1,amImmediate);
+  MakeOpCode($88,'EORA #%s',    1,amImmediate);
+  MakeOpCode($89,'ADCA #%s',    1,amImmediate);
+  MakeOpCode($8A,'ORA #%s',     1,amImmediate);
+  MakeOpCode($8B,'ADDA #%s',    1,amImmediate);
+  MakeOpCode($8C,'CMPX #%s',    2,amImmediate);
   MakeOpCode($8D,'BSR %s',      1,amRelative,[tc6809],TRUE);
-  MakeOpCode($8E,'LDX #$%s',    2,amImmediate);
+  MakeOpCode($8E,'LDX #%s',     2,amImmediate);
 
   MakeOpCode($90,'SUBA %s',     1,amDirect);
   MakeOpCode($91,'CMPA %s',     1,amDirect);
@@ -882,19 +884,19 @@ BEGIN;
   MakeOpCode($BE,'LDX %s',      3,amExtended);
   MakeOpCode($BF,'STX %s',      3,amExtended);
 
-  MakeOpCode($C0,'SUBB #$%s',   1,amImmediate);
-  MakeOpCode($C1,'CMPB #$%s',   1,amImmediate);
-  MakeOpCode($C2,'SBCB #$%s',   1,amImmediate);
-  MakeOpCode($C3,'ADDD #$%s',   2,amImmediate);
-  MakeOpCode($C4,'ANDB #$%s',   1,amImmediate);
-  MakeOpCode($C5,'BITB #$%s',   1,amImmediate);
-  MakeOpCode($C6,'LDB #$%s',    1,amImmediate);
-  MakeOpCode($C8,'EORB #$%s',   1,amImmediate);
-  MakeOpCode($C9,'ADCB #$%s',   1,amImmediate);
-  MakeOpCode($CA,'ORB #$%s',    1,amImmediate);
-  MakeOpCode($CB,'ADDB #$%s',   1,amImmediate);
-  MakeOpCode($CC,'LDD #$%s',    2,amImmediate);
-  MakeOpCode($CE,'LDU #$%s',    2,amImmediate);
+  MakeOpCode($C0,'SUBB #%s',    1,amImmediate);
+  MakeOpCode($C1,'CMPB #%s',    1,amImmediate);
+  MakeOpCode($C2,'SBCB #%s',    1,amImmediate);
+  MakeOpCode($C3,'ADDD #%s',    2,amImmediate);
+  MakeOpCode($C4,'ANDB #%s',    1,amImmediate);
+  MakeOpCode($C5,'BITB #%s',    1,amImmediate);
+  MakeOpCode($C6,'LDB #%s',     1,amImmediate);
+  MakeOpCode($C8,'EORB #%s',    1,amImmediate);
+  MakeOpCode($C9,'ADCB #%s',    1,amImmediate);
+  MakeOpCode($CA,'ORB #%s',     1,amImmediate);
+  MakeOpCode($CB,'ADDB #%s',    1,amImmediate);
+  MakeOpCode($CC,'LDD #%s',     2,amImmediate);
+  MakeOpCode($CE,'LDU #%s',     2,amImmediate);
 
   MakeOpCode($D0,'SUBB %s',     1,amDirect);
   MakeOpCode($D1,'CMPB %s',     1,amDirect);
@@ -908,7 +910,7 @@ BEGIN;
   MakeOpCode($D9,'ADCB %s',     1,amDirect);
   MakeOpCode($DA,'ORB %s',      1,amDirect);
   MakeOpCode($DB,'ADDB %s',     1,amDirect);
-  MakeOpCode($DC,'LDD %s',     1,amDirect);
+  MakeOpCode($DC,'LDD %s',      1,amDirect);
   MakeOpCode($DD,'STD %s',      1,amDirect);
   MakeOpCode($DE,'LDU %s',      1,amDirect);
   MakeOpCode($DF,'STU %s',      1,amDirect);
@@ -925,7 +927,7 @@ BEGIN;
   MakeOpCode($E9,'ADCB %s',     2,amIndexed);
   MakeOpCode($EA,'ORB %s',      2,amIndexed);
   MakeOpCode($EB,'ADDB %s',     2,amIndexed);
-  MakeOpCode($EC,'LDD %s',     2,amIndexed);
+  MakeOpCode($EC,'LDD %s',      2,amIndexed);
   MakeOpCode($ED,'STD %s',      2,amIndexed);
   MakeOpCode($EE,'LDU %s',      2,amIndexed);
   MakeOpCode($EF,'STU %s',      2,amIndexed);
@@ -965,9 +967,9 @@ BEGIN;
 
   MakeOpCode($103F,'SWI2',      0,amImplied);
 
-  MakeOpCode($1083,'CMPD #$%s', 2,amImmediate);
-  MakeOpCode($108C,'CMPY #$%s', 2,amImmediate);
-  MakeOpCode($108E,'LDY #$%s',  2,amImmediate);
+  MakeOpCode($1083,'CMPD #%s',  2,amImmediate);
+  MakeOpCode($108C,'CMPY #%s',  2,amImmediate);
+  MakeOpCode($108E,'LDY #%s',   2,amImmediate);
 
   MakeOpCode($1093,'CMPD %s',   1,amDirect);
   MakeOpCode($109C,'CMPY %s',   1,amDirect);
@@ -984,7 +986,7 @@ BEGIN;
   MakeOpCode($10BE,'LDY %s',    2,amExtended);
   MakeOpCode($10BF,'STY %s',    2,amExtended);
 
-  MakeOpCode($10CE,'LDS #$%s',  2,amImmediate);
+  MakeOpCode($10CE,'LDS #%s',   2,amImmediate);
   MakeOpCode($10DE,'LDS %s',    1,amDirect);
   MakeOpCode($10DF,'STS %s',    1,amDirect);
   MakeOpCode($10EE,'LDS %s',    2,amIndexed);
@@ -993,8 +995,8 @@ BEGIN;
   MakeOpCode($10FF,'STS %s',    2,amExtended);
 
   MakeOpCode($113F,'SWI3',      0,amImplied);
-  MakeOpCode($1183,'CMPU #$%s', 2,amImmediate);
-  MakeOpCode($118C,'CMPS #$%s', 2,amImmediate);
+  MakeOpCode($1183,'CMPU #%s',  2,amImmediate);
+  MakeOpCode($118C,'CMPS #%s',  2,amImmediate);
   MakeOpCode($1193,'CMPU %s',   1,amDirect);
   MakeOpCode($119C,'CMPS %s',   1,amDirect);
   MakeOpCode($11A3,'CMPU %s',   2,amIndexed);

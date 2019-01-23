@@ -9,9 +9,10 @@ USES
   MemoryListUnit,ConsoleUnit,ParameterListUnit,BeebDisDefsUnit;
 
 CONST
-    MinOpCode   = 0;
-    MaxOpCode   = $FFFF;
-    DefRadix    = 10;
+    MinOpCode       = 0;
+    MaxOpCode       = $FFFF;
+    DefRadix        = 10;
+    DefVerbosity    = 1;
 
 
 TYPE
@@ -28,19 +29,20 @@ TYPE
 
     TADisassembler = Class(TObject)
     PROTECTED
-      FOpCodes	: ARRAY[MinOpCode..MaxOpCode]OF TOpCode;
-      FVerbose	: BOOLEAN;
-      FCPU      : TCPU;
-      FMaxCPU   : TCPU;
-      FMinCPU   : TCPU;
-      FRadix    : BYTE;
+      FOpCodes	    : ARRAY[MinOpCode..MaxOpCode]OF TOpCode;
+      FVerbosity    : BYTE;
+      FCPU          : TCPU;
+      FMaxCPU       : TCPU;
+      FMinCPU       : TCPU;
+      FRadix        : BYTE;
+      FSwapWords    : BOOLEAN;
 
       FUNCTION CalcRelative8(RelOffset     : Shortint) : WORD;
       FUNCTION CalcRelative16(RelOffset     : Smallint) : WORD;
       PROCEDURE DecodeInstruction;   virtual; abstract;
       PROCEDURE InitOpcodes;         virtual;
       PROCEDURE InitDirectives;      virtual; abstract;
-      PROCEDURE SetVerbose(NewValue	: BOOLEAN);
+      PROCEDURE SetVerbosity(NewValue	: BYTE);
       PROCEDURE SetCPU(CPUType  : TCPU);
       PROCEDURE SetRadix(ARadix : BYTE);
       FUNCTION FormatInvalid(ALocation  : WORD;
@@ -55,9 +57,10 @@ TYPE
       MemoryList		: TMemoryList;
       Parameters        : TParameterList;
 
-      PROPERTY Verbose 	: BOOLEAN READ FVerbose WRITE SetVerbose;
+      PROPERTY Verbosity: BYTE READ FVerbosity WRITE SetVerbosity;
       PROPERTY CPU      : TCPU READ FCPU WRITE SetCPU;
       PROPERTY Radix    : BYTE READ FRadix WRITE SetRadix;
+      PROPERTY SwapWords: BOOLEAN READ FSwapWords;
 
       CONSTRUCTOR Create;
       DESTRUCTOR Destroy; override;
@@ -82,9 +85,10 @@ CONSTRUCTOR TADisassembler.Create;
 
 BEGIN;
   INHERITED Create;
-  FVerbose:=FALSE;
+  FVerbosity:=VBNormal;
   FCPU:=tcInvalid;
   FRadix:=DefRadix;
+  FSwapWords:=FALSE;
 END;
 
 DESTRUCTOR TADisassembler.Destroy;
@@ -93,10 +97,10 @@ BEGIN;
   INHERITED Destroy;
 END;
 
-PROCEDURE TADisassembler.SetVerbose(NewValue	: BOOLEAN);
+PROCEDURE TADisassembler.SetVerbosity(NewValue	: BYTE);
 
 BEGIN;
-  FVerbose:=NewValue;
+  FVerbosity:=NewValue;
 END;
 
 FUNCTION TADisassembler.CalcRelative8(RelOffset     : ShortInt) : WORD;

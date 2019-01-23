@@ -31,7 +31,7 @@ TYPE
 
      TSymbolList = Class(TObjectList)
      PROTECTED
-       FVerbose	    : BOOLEAN;
+       FVerbosity   : BYTE;
        FName	    : STRING;
        FMaxAddr     : DWORD;
        FMinAddr	    : DWORD;
@@ -55,7 +55,7 @@ TYPE
     PUBLIC
        PROPERTY Symbols[Index	: INTEGER]	: STRING READ GetSymbolFromIndex;
        PROPERTY Addresses[Index	: INTEGER] 	: DWORD READ GetAddressFromIndex;
-       PROPERTY Verbose 			        : BOOLEAN READ FVerbose WRITE FVerbose;
+       PROPERTY Verbosity 			        : BYTE READ FVerbosity WRITE FVerbosity;
        PROPERTY Name				        : STRING READ FName WRITE FName;
        PROPERTY MinAddr				        : DWORD READ FMinAddr;
        PROPERTY MaxAddr				        : DWORD READ FMaxAddr;
@@ -227,8 +227,7 @@ BEGIN;
     BEGIN;
       SymIndex:=AddSymbol(ALabel,Address,ASType,ARefCount);
 
-      IF (Verbose) THEN
-        WriteLnFmt('%s:Label %s Address %4.4x',[FName,ALabel,Address]);
+      WriteLnFmtV(FVerbosity,VBDebug,'%s:Label %s Address %4.4x',[FName,ALabel,Address]);
 
       Result:=TSymbol(Items[SymIndex]).Symbol;
     END
@@ -363,6 +362,7 @@ BEGIN;
           IF ((Address>-1) AND (Address<$10000)) THEN
           BEGIN
             AddAddress(Address,ALabel,stLoaded);
+            WriteLnFmtV(FVerbosity,VBDebug,'Loaded lable %s value $%4.4X',[ALabel,Address]);
             IF(FParser.Identifiers.IndexOfIdentifier(ALabel) < 0) THEN
               FParser.Identifiers.AddIntegerVariable(ALabel,Address);
           END;
@@ -470,7 +470,10 @@ VAR FileNo  : INTEGER;
 
 BEGIN;
   FOR FileNo:=0 TO (FSymbolFiles.Count-1) DO
+  BEGIN;
+    WriteLnFmtv(FVerbosity,VBNormal,'Loading symbols from %s',[FSymbolFiles[FileNo]]);
     LoadLabels(FSymbolFiles[FileNo]);
+  END;
 
   FSymbolFiles.Clear;
 END;

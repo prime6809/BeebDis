@@ -29,6 +29,8 @@ program BeebDis;
 {       CPU family to disassemble may be selected at runtime.                 }
 {       Implemented Motorola 6809 (and compatible) disassembly.               }
 {                                                                             }
+{ 2019-01-23 Fixed a bug where symbol files not being read.                   }
+{       Added verbose keyword to control file.                                }
 
 uses
   SysUtils,
@@ -68,7 +70,7 @@ BEGIN;
   CFileName:=ParamStr(1);
   CFilePath:=ExtractFilePath(CFileName);
   Abort:=FALSE;
-  Disassember.Verbose:=FALSE;
+  Disassember.Verbosity:=VBNormal;
   Options:=TRamothStringList.Create;
   InlineAddr:=0;;
 END;
@@ -76,7 +78,7 @@ END;
 PROCEDURE SignOn;
 
 BEGIN;
-  WriteLnFmt('BeebDis V%d.%2.2d 2018-04, Phill Harvey-Smith.',[Major,Minor]);
+  WriteLnFmtV(Disassember.Verbosity,VBNormal,'BeebDis V%d.%2.2d 2019-01, Phill Harvey-Smith.',[Major,Minor]);
 END;
 
 PROCEDURE Finalize;
@@ -153,6 +155,11 @@ OPTION name value       ; Set parameter name = value both string, boolean values
                         ; may be set with the values 'true' or 'false' or '1'
                         ; or '0'
 RADIX 2 | 8 | 10 | 16   ; Set the default radix for number output.
+VERBOSE level           ; Set verbosity level :
+                        ;       0=quiet, (no output unless error)
+                        ;       1=normal, signon + file loads / saves
+                        ;       2=verbose, additional information
+                        ;       3+=debug, internal debug info.
 ToDo :
 }
 
@@ -181,13 +188,17 @@ BEGIN;
 
     ControlFile.LoadFromFile(InFilename);
 
-    { First parse the control file and expand any repeat directives }
+    { First parse the control file and expand any repeat directives, also set }
+    { Verbosity level }
 
     FOR LineNo:=0 TO (ControlFile.Count-1) DO
     BEGIN;
       Split.Split(Trim(ControlFile.Strings[LineNo]));
       Split.PurgeBlank;
       Keyword:=LowerCase(Split[0]);
+
+      IF (Keyword=KWVerbose) THEN
+        Disassember.Verbosity:=StrToIntDef(Split[1],DefVerbosity);
 
       IF (Keyword=KWActive) THEN
           TryStrToBool(Split[1],Active);
@@ -227,6 +238,10 @@ BEGIN;
 
     ControlFile.Clear;
     ControlFile.AddStrings(NewControl);
+
+    SignOn;
+
+//    Writeln(ControlFile.Text);
 
     LineNo:=0;
     WHILE ((NOT Abort) AND (LineNo<ControlFile.Count)) DO
@@ -316,6 +331,7 @@ BEGIN;
 
           IF (Keyword=KWRadix) THEN
             Disassember.Radix:=StrToIntDef(Split[1],DefRadix);
+
         END;
       END;
 
@@ -339,7 +355,6 @@ END;
 begin
   TRY
     Initialize;
-    SignOn;
     TRY
       IF (FileExists(CFileName)) THEN
         ReadControlFile(CFileName)
@@ -366,11 +381,17 @@ begin
 
       IF (Options.BoolValues[OptNewSym]) THEN
         IF (Options.Values[OptNewSymFile]<>'') THEN
-	      Disassember.SymbolList.SaveSymbolsToFile(Options.Values[OptNewSymFile],stGenerated,
+        BEGIN;
+          WriteLnFmtV(Disassember.Verbosity,VBNormal,'writing new symbol file : %s',[Options.Values[OptNewSymFile]]);
+          Disassember.SymbolList.SaveSymbolsToFile(Options.Values[OptNewSymFile],stGenerated,
                                                    Disassember.Parameters[mlEquate]);
+        END;
 
       IF (Disassember.MemoryList.OutputFilename<>'') THEN
-        OutputBuffer.SaveToFile(Disassember.MemoryList.OutputFilename)
+      BEGIN;
+        WriteLnFmtV(Disassember.Verbosity,VBNormal,'Writing output to : %s',[Disassember.MemoryList.OutputFilename]);
+        OutputBuffer.SaveToFile(Disassember.MemoryList.OutputFilename);
+      END
       ELSE
         WriteLn(OutputBuffer.Text);
     FINALLY
