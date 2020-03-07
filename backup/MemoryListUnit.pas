@@ -268,9 +268,6 @@ BEGIN;
     {Get symbol for this address if any}
     CodeLabel:=FSymbols.GetSymbol(Item.Address,FALSE);
 
-    if (Item.Address=$C2CC) THEN
-      WriteLn('PENIS!');
-
     IF ((CodeLabel<>'') AND (FSymbols.GetSymbolRefs(Item.Address)<>0)) THEN
       Flisting.Add(Format('%s%s%s',[FParameters[mlLabelPrefix],CodeLabel,FParameters[mlLabelSuffix]]));
 

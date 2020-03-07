@@ -200,8 +200,7 @@ VAR DPByte  : BYTE;
 BEGIN;
   {GetDP ref}
   DPByte:=Memory.ReadByte(IsDone);
-  //TargetLable:=SymbolList.GetSymbol(DPByte,TRUE,1);
-  TargetLable:=GetTargetLable(DPByte);
+  TargetLable:=SymbolList.GetSymbol(DPByte,TRUE,1);
   Result:=Format(Op.OpStr,[TargetLable]);
   IF (Op.IsBranch) THEN
     EntryPoints.GetSymbol(DPByte);
@@ -293,8 +292,7 @@ VAR DestWord    : WORD;
 
 BEGIN;
   DestWord:=Memory.ReadWord(IsDone);
-  //TargetLable:=SymbolList.GetSymbol(DestWord,TRUE,1);
-  TargetLable:=GetTargetLable(DestWord);
+  TargetLable:=SymbolList.GetSymbol(DestWord,TRUE,1);
   Result:=Format(Op.OpStr,[TargetLable]);
   IF (Op.IsBranch) THEN
     EntryPoints.GetSymbol(DestWord);
@@ -377,10 +375,9 @@ BEGIN;
 
   {Try getting target from entry list first, in case it has an explicitly}
   {defined symbol                                                        }
-  //TargetLable:=EntryPoints.GetSymbol(RelDest);
-  //IF (TargetLable='') THEN
-  // TargetLable:=SymbolList.GetSymbol(RelDest,TRUE,1);
-  TargetLable:=GetTargetLable(RelDest);
+  TargetLable:=EntryPoints.GetSymbol(RelDest);
+  IF (TargetLable='') THEN
+    TargetLable:=SymbolList.GetSymbol(RelDest,TRUE,1);
   Result:=Format(Op.OpStr,[TargetLable]);
 END;
 
