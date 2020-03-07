@@ -140,7 +140,10 @@ END;
 PROCEDURE TSymbol.IncRefCount(AIncrement : INTEGER = 1);
 
 BEGIN;
+//  IF (Address=$c2cc) THEN
+//    WriteLnFmt('IncRefCount,%s,%d,%d',[Symbol,AIncrement,RefCount]);
   RefCount:=RefCount+AIncrement;
+  WriteLnFmt('IncRefCount,%s,%d,%d',[Symbol,AIncrement,RefCount]);
 END;
 
 CONSTRUCTOR TSymbolList.Create(AName		: STRING;

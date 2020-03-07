@@ -132,8 +132,7 @@ STRINGTERM addr term	; String data until specified terminator is reached
 STRINGHI addr		    ; String data until a byte with high bit set is reached
 STRINGHIZ addr          ; String data until either a zero byte or a byte with
                         ; high bit set.
-ENTRY addr [symbolname] ; Code entry point with optional symbol name otherwise
-                        ; use generated Lxxxx type name
+ENTRY addr        	    ; Code entry point
 WORDENTRY addr count	; Use words at addr as entrypoints.
 WORDRTS addr count      ; Like wordentry but word pushed onto stack and jumped
                         ; to by rts, point to lable-1.

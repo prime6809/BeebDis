@@ -9,8 +9,8 @@
         <Filename Value="BeebDis.dpr"/>
         <IsPartOfProject Value="True"/>
         <IsVisibleTab Value="True"/>
-        <TopLine Value="107"/>
-        <CursorPos X="56" Y="136"/>
+        <TopLine Value="270"/>
+        <CursorPos Y="299"/>
         <UsageCount Value="423"/>
         <Loaded Value="True"/>
         <DefaultSyntaxHighlighter Value="Delphi"/>

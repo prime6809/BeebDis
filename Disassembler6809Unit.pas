@@ -29,6 +29,7 @@ CONST
     {Executable format specifiers}
     exeOS9Mod       = 'os9';            { OS9 module format}
     exeDDos         = 'dragondos';      { DragonDos / DragonMMC executable file }
+    exeFlex         = 'flex';           { Flex segmented CMD / SYS file }
 
     OS9Sync         = $87CD;            { OS9's module header identifier }
     OS9HeadCLength  = $08;              { Number of bytes in OS9 header that are parity checked }
@@ -36,6 +37,11 @@ CONST
     DDHeadStart     = $55;              { Dragon dos / DragonMMC executable header start marker }
     DDHeadEnd       = $AA;              { Dragon dos / DragonMMC executable header end marker }
     DDHeadLength    = $09;              { Dragon dos / DragonMMC executable header length }
+
+    { Flex binary files are made up of multiple records, which need not be }
+    { contiguous in memory, but have a maximum size of 255 bytes }
+    FlexSOR         = $02;              { Flex Start of binary record }
+    FlexTransfer    = $16;              { Flex transfer (exec) address record }
 
 
 TYPE
