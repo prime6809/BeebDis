@@ -70,7 +70,8 @@ TYPE
       IndexByte     : BYTE;
       CommentStr    : STRING;
 
-      FUNCTION GetTargetLable(ATargetAddr   : WORD) : STRING;
+      FUNCTION GetTargetLable(ATargetAddr   : WORD;
+                              ATargetIsCode : BOOLEAN) : STRING;
 
       FUNCTION DecodeImmediate  : STRING;
       FUNCTION DecodeDirect     : STRING;
@@ -164,12 +165,21 @@ BEGIN;
     MemoryList.AddData(tyDataByte,'pc',Memory.AreaLength(IsCode));
 END;
 
-FUNCTION TDisassembler6809.GetTargetLable(ATargetAddr   : WORD) : STRING;
+FUNCTION TDisassembler6809.GetTargetLable(ATargetAddr   : WORD;
+                                          ATargetIsCode : BOOLEAN) : STRING;
 
 BEGIN
   Result:=EntryPoints.GetSymbol(ATargetAddr,FALSE);
   IF (Result='') THEN
+  BEGIN;
     Result:=SymbolList.GetSymbol(ATargetAddr,True,1);
+
+    IF (ATargetIsCode AND EntryPoints.InRange(ATargetAddr)) THEN
+    begin;
+      EntryPoints.SafeAddAddress(ATargetAddr,Result,TRUE);
+      WriteLnFmt('%4.4X, %s',[ATargetAddr,Result]);
+    end;
+  END;
 END;
 
 FUNCTION TDisassembler6809.DecodeImmediate  : STRING;
@@ -201,10 +211,8 @@ BEGIN;
   {GetDP ref}
   DPByte:=Memory.ReadByte(IsDone);
   //TargetLable:=SymbolList.GetSymbol(DPByte,TRUE,1);
-  TargetLable:=GetTargetLable(DPByte);
+  TargetLable:=GetTargetLable(DPByte,Op.IsBranch);
   Result:=Format(Op.OpStr,[TargetLable]);
-  IF (Op.IsBranch) THEN
-    EntryPoints.GetSymbol(DPByte);
 END;
 
 FUNCTION TDisassembler6809.DecodeIndexed    : STRING;
@@ -265,15 +273,15 @@ BEGIN;
       $0B   : EffectiveStr:=Format('D,%s',[RegName]);
       $0C   : BEGIN;
                 ByteOffs:=Memory.ReadByte(IsDone);
-                EffectiveStr:=Format('%s,PCR',[GetTargetLable(CalcRelative8(ByteOffs))]);
+                EffectiveStr:=Format('%s,PCR',[GetTargetLable(CalcRelative8(ByteOffs),FALSE)]);
               END;
       $0D   : BEGIN;
                 WordOffs:=Memory.ReadWord(IsDone);
-                EffectiveStr:=Format('%s,PCR',[GetTargetLable(CalcRelative16(WordOffs))]);
+                EffectiveStr:=Format('%s,PCR',[GetTargetLable(CalcRelative16(WordOffs),FALSE)]);
               END;
       $0F   : BEGIN;
                 WordOffs:=Memory.ReadWord(IsDone);
-                EffectiveStr:=Format('%s',[GetTargetLable(WordOffs)]);
+                EffectiveStr:=Format('%s',[GetTargetLable(WordOffs,FALSE)]);
               END;
       ELSE
         EffectiveStr:=Format('Invalid indexed byte : $%2.2X',[IndexByte]);
@@ -293,11 +301,8 @@ VAR DestWord    : WORD;
 
 BEGIN;
   DestWord:=Memory.ReadWord(IsDone);
-  //TargetLable:=SymbolList.GetSymbol(DestWord,TRUE,1);
-  TargetLable:=GetTargetLable(DestWord);
+  TargetLable:=GetTargetLable(DestWord,Op.IsBranch);
   Result:=Format(Op.OpStr,[TargetLable]);
-  IF (Op.IsBranch) THEN
-    EntryPoints.GetSymbol(DestWord);
 END;
 
 FUNCTION TDisassembler6809.DecodePushPull : STRING;
@@ -377,10 +382,7 @@ BEGIN;
 
   {Try getting target from entry list first, in case it has an explicitly}
   {defined symbol                                                        }
-  //TargetLable:=EntryPoints.GetSymbol(RelDest);
-  //IF (TargetLable='') THEN
-  // TargetLable:=SymbolList.GetSymbol(RelDest,TRUE,1);
-  TargetLable:=GetTargetLable(RelDest);
+  TargetLable:=GetTargetLable(RelDest,Op.IsBranch);
   Result:=Format(Op.OpStr,[TargetLable]);
 END;
 
@@ -726,18 +728,18 @@ END;
 PROCEDURE TDisassembler6809.InitOpcodes;
 
 BEGIN;
-  MakeOpCode($00,'NEG %s',      1,amDirect);
-  MakeOpCode($03,'COM %s',      1,amDirect);
-  MakeOpCode($04,'LSR %s',      1,amDirect);
-  MakeOpCode($06,'ROR %s',      1,amDirect);
-  MakeOpCode($07,'ASR %s',      1,amDirect);
-  MakeOpCode($08,'LSL %s',      1,amDirect);
-  MakeOpCode($09,'ROL %s',      1,amDirect);
-  MakeOpCode($0A,'DEC %s',      1,amDirect);
-  MakeOpCode($0C,'INC %s',      1,amDirect);
-  MakeOpCode($0D,'TST %s',      1,amDirect);
-  MakeOpCode($0E,'JMP %s',      1,amDirect,[tc6809],TRUE);
-  MakeOpCode($0F,'CLR %s',      1,amDirect);
+  MakeOpCode($00,'NEG <%s',      1,amDirect);
+  MakeOpCode($03,'COM <%s',      1,amDirect);
+  MakeOpCode($04,'LSR <%s',      1,amDirect);
+  MakeOpCode($06,'ROR <%s',      1,amDirect);
+  MakeOpCode($07,'ASR <%s',      1,amDirect);
+  MakeOpCode($08,'LSL <%s',      1,amDirect);
+  MakeOpCode($09,'ROL <%s',      1,amDirect);
+  MakeOpCode($0A,'DEC <%s',      1,amDirect);
+  MakeOpCode($0C,'INC <%s',      1,amDirect);
+  MakeOpCode($0D,'TST <%s',      1,amDirect);
+  MakeOpCode($0E,'JMP <%s',      1,amDirect,[tc6809],TRUE);
+  MakeOpCode($0F,'CLR <%s',      1,amDirect);
 
 //  MakeOpCode($10,'',            0,amImplied,[tc6809]);
 //  MakeOpCode($11,'',            0,amImplied,[tc6809]);
@@ -849,22 +851,22 @@ BEGIN;
   MakeOpCode($8D,'BSR %s',      1,amRelative,[tc6809],TRUE);
   MakeOpCode($8E,'LDX #%s',     2,amImmediate);
 
-  MakeOpCode($90,'SUBA %s',     1,amDirect);
-  MakeOpCode($91,'CMPA %s',     1,amDirect);
-  MakeOpCode($92,'SBCA %s',     1,amDirect);
-  MakeOpCode($93,'SUBD %s',     1,amDirect);
-  MakeOpCode($94,'ANDA %s',     1,amDirect);
-  MakeOpCode($95,'BITA %s',     1,amDirect);
-  MakeOpCode($96,'LDA %s',      1,amDirect);
-  MakeOpCode($97,'STA %s',      1,amDirect);
-  MakeOpCode($98,'EORA %s',     1,amDirect);
-  MakeOpCode($99,'ADCA %s',     1,amDirect);
-  MakeOpCode($9A,'ORA %s',      1,amDirect);
-  MakeOpCode($9B,'ADDA %s',     1,amDirect);
-  MakeOpCode($9C,'CMPX %s',     1,amDirect);
-  MakeOpCode($9D,'JSR %s',      1,amDirect,[tc6809],TRUE);
-  MakeOpCode($9E,'LDX %s',      1,amDirect);
-  MakeOpCode($9F,'STX %s',      1,amDirect);
+  MakeOpCode($90,'SUBA <%s',     1,amDirect);
+  MakeOpCode($91,'CMPA <%s',     1,amDirect);
+  MakeOpCode($92,'SBCA <%s',     1,amDirect);
+  MakeOpCode($93,'SUBD <%s',     1,amDirect);
+  MakeOpCode($94,'ANDA <%s',     1,amDirect);
+  MakeOpCode($95,'BITA <%s',     1,amDirect);
+  MakeOpCode($96,'LDA <%s',      1,amDirect);
+  MakeOpCode($97,'STA <%s',      1,amDirect);
+  MakeOpCode($98,'EORA <%s',     1,amDirect);
+  MakeOpCode($99,'ADCA <%s',     1,amDirect);
+  MakeOpCode($9A,'ORA <%s',      1,amDirect);
+  MakeOpCode($9B,'ADDA <%s',     1,amDirect);
+  MakeOpCode($9C,'CMPX <%s',     1,amDirect);
+  MakeOpCode($9D,'JSR <%s',      1,amDirect,[tc6809],TRUE);
+  MakeOpCode($9E,'LDX <%s',      1,amDirect);
+  MakeOpCode($9F,'STX <%s',      1,amDirect);
 
   MakeOpCode($A0,'SUBA %s',     2,amIndexed);
   MakeOpCode($A1,'CMPA %s',     2,amIndexed);
@@ -914,22 +916,22 @@ BEGIN;
   MakeOpCode($CC,'LDD #%s',     2,amImmediate);
   MakeOpCode($CE,'LDU #%s',     2,amImmediate);
 
-  MakeOpCode($D0,'SUBB %s',     1,amDirect);
-  MakeOpCode($D1,'CMPB %s',     1,amDirect);
-  MakeOpCode($D2,'SBCB %s',     1,amDirect);
-  MakeOpCode($D3,'ADDD %s',     1,amDirect);
-  MakeOpCode($D4,'ANDB %s',     1,amDirect);
-  MakeOpCode($D5,'BITB %s',     1,amDirect);
-  MakeOpCode($D6,'LDB %s',      1,amDirect);
-  MakeOpCode($D7,'STB %s',      1,amDirect);
-  MakeOpCode($D8,'EORB %s',     1,amDirect);
-  MakeOpCode($D9,'ADCB %s',     1,amDirect);
-  MakeOpCode($DA,'ORB %s',      1,amDirect);
-  MakeOpCode($DB,'ADDB %s',     1,amDirect);
-  MakeOpCode($DC,'LDD %s',      1,amDirect);
-  MakeOpCode($DD,'STD %s',      1,amDirect);
-  MakeOpCode($DE,'LDU %s',      1,amDirect);
-  MakeOpCode($DF,'STU %s',      1,amDirect);
+  MakeOpCode($D0,'SUBB <%s',     1,amDirect);
+  MakeOpCode($D1,'CMPB <%s',     1,amDirect);
+  MakeOpCode($D2,'SBCB <%s',     1,amDirect);
+  MakeOpCode($D3,'ADDD <%s',     1,amDirect);
+  MakeOpCode($D4,'ANDB <%s',     1,amDirect);
+  MakeOpCode($D5,'BITB <%s',     1,amDirect);
+  MakeOpCode($D6,'LDB <%s',      1,amDirect);
+  MakeOpCode($D7,'STB <%s',      1,amDirect);
+  MakeOpCode($D8,'EORB <%s',     1,amDirect);
+  MakeOpCode($D9,'ADCB <%s',     1,amDirect);
+  MakeOpCode($DA,'ORB <%s',      1,amDirect);
+  MakeOpCode($DB,'ADDB <%s',     1,amDirect);
+  MakeOpCode($DC,'LDD <%s',      1,amDirect);
+  MakeOpCode($DD,'STD <%s',      1,amDirect);
+  MakeOpCode($DE,'LDU <%s',      1,amDirect);
+  MakeOpCode($DF,'STU <%s',      1,amDirect);
 
   MakeOpCode($E0,'SUBB %s',     2,amIndexed);
   MakeOpCode($E1,'CMPB %s',     2,amIndexed);
@@ -987,10 +989,10 @@ BEGIN;
   MakeOpCode($108C,'CMPY #%s',  2,amImmediate);
   MakeOpCode($108E,'LDY #%s',   2,amImmediate);
 
-  MakeOpCode($1093,'CMPD %s',   1,amDirect);
-  MakeOpCode($109C,'CMPY %s',   1,amDirect);
-  MakeOpCode($109E,'LDY %s',    1,amDirect);
-  MakeOpCode($109F,'STY %s',    1,amDirect);
+  MakeOpCode($1093,'CMPD <%s',   1,amDirect);
+  MakeOpCode($109C,'CMPY <%s',   1,amDirect);
+  MakeOpCode($109E,'LDY <%s',    1,amDirect);
+  MakeOpCode($109F,'STY <%s',    1,amDirect);
 
   MakeOpCode($10A3,'CMPD %s',   2,amIndexed);
   MakeOpCode($10AC,'CMPY %s',   2,amIndexed);
@@ -1003,8 +1005,8 @@ BEGIN;
   MakeOpCode($10BF,'STY %s',    2,amExtended);
 
   MakeOpCode($10CE,'LDS #%s',   2,amImmediate);
-  MakeOpCode($10DE,'LDS %s',    1,amDirect);
-  MakeOpCode($10DF,'STS %s',    1,amDirect);
+  MakeOpCode($10DE,'LDS <%s',    1,amDirect);
+  MakeOpCode($10DF,'STS <%s',    1,amDirect);
   MakeOpCode($10EE,'LDS %s',    2,amIndexed);
   MakeOpCode($10EF,'STS %s',    2,amIndexed);
   MakeOpCode($10FE,'LDS %s',    2,amExtended);
@@ -1013,8 +1015,8 @@ BEGIN;
   MakeOpCode($113F,'SWI3',      0,amImplied);
   MakeOpCode($1183,'CMPU #%s',  2,amImmediate);
   MakeOpCode($118C,'CMPS #%s',  2,amImmediate);
-  MakeOpCode($1193,'CMPU %s',   1,amDirect);
-  MakeOpCode($119C,'CMPS %s',   1,amDirect);
+  MakeOpCode($1193,'CMPU <%s',   1,amDirect);
+  MakeOpCode($119C,'CMPS <%s',   1,amDirect);
   MakeOpCode($11A3,'CMPU %s',   2,amIndexed);
   MakeOpCode($11AC,'CMPS %s',   2,amIndexed);
   MakeOpCode($11B3,'CMPU %s',   2,amExtended);

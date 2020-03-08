@@ -267,7 +267,7 @@ BEGIN;
     END;
     {Get symbol for this address if any}
     CodeLabel:=FSymbols.GetSymbol(Item.Address,FALSE);
-WriteLn(CodeLabel);
+
     IF ((CodeLabel<>'') AND (FSymbols.GetSymbolRefs(Item.Address)<>0)) THEN
       Flisting.Add(Format('%s%s%s',[FParameters[mlLabelPrefix],CodeLabel,FParameters[mlLabelSuffix]]));
 
@@ -297,11 +297,13 @@ PROCEDURE TMemoryList.AddData(DataType		: TItemType;
                               Comment       : STRING = '';
                               ARefCount     : INTEGER = 0);
 
-VAR ToAdd	    : TLocation;
-    DataSize	: INTEGER;
-    ItemSize	: DWORD;
-    Current	    : CHAR;
-    ItemNo	    : INTEGER;
+VAR ToAdd	        : TLocation;
+    DataSize	    : INTEGER;
+    ItemSize	    : DWORD;
+    Current	        : CHAR;
+    ItemNo	        : INTEGER;
+    LookupSymbol    : STRING;
+    LookupAddr      : DWORD;
 
 BEGIN;
   IF (FDebug) THEN
@@ -345,10 +347,24 @@ BEGIN;
   BEGIN;
     FMemory.PC:=ToAdd.Address;
     FOR ItemNo:=0 TO (Count-1) DO
+    BEGIN;
       IF (DataType=tyDataWordRTSEntry) THEN
+        LookupAddr:=FMemory.ReadWord+1
+      ELSE
+        LookupAddr:=FMemory.ReadWord;
+
+      LookupSymbol:=FSymbols.GetSymbol(LookupAddr,FALSE);
+
+      IF (LookupSymbol='') THEN
+        FEntryPoints.GetSymbol(LookupAddr,TRUE)
+      ELSE
+        FEntryPoints.AddOrRenameAddress(LookupAddr,LookupSymbol,TRUE);
+
+{      IF (DataType=tyDataWordRTSEntry) THEN
         FEntryPoints.GetSymbol(FMemory.ReadWord+1,TRUE)
       ELSE
         FEntryPoints.GetSymbol(FMemory.ReadWord,TRUE);
+}   END;
   END;
 
   DataSize:=Count*ItemSize;
@@ -385,9 +401,9 @@ BEGIN;
     WriteLnFmt('TMemoryList.AddEntry(%s,%s)',[Location,EntryLabel]);
 
   IF (LowerCase(Location)=TokenPC) THEN
-    FEntryPoints.SafeAddAddress(FMemory.PC,EntryLabel,TRUE)
+    FEntryPoints.AddOrRenameAddress(FMemory.PC,EntryLabel,TRUE)
   ELSE
-    FEntryPoints.SafeAddAddress(StrToIntDef(Location,0),EntryLabel,TRUE);
+    FEntryPoints.AddOrRenameAddress(StrToIntDef(Location,0),EntryLabel,TRUE);
 END;
 
 FUNCTION TMemoryList.FixupString(Item	: TLocation) : STRING;

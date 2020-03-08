@@ -73,6 +73,10 @@ TYPE
 			                   ALabel	: STRING;
                                IsEntry  : BOOLEAN = FALSE) : STRING;
 
+       FUNCTION AddOrRenameAddress(Address	: DWORD;
+			                       ALabel	: STRING;
+                                   IsEntry  : BOOLEAN = FALSE) : STRING;
+
        FUNCTION GetSymbol(Address	: DWORD;
 			              CanCreate	: BOOLEAN = TRUE;
                           ARefCount : INTEGER = 0) : STRING;
@@ -86,14 +90,14 @@ TYPE
        PROCEDURE LoadLabels(FileName	: STRING);
        FUNCTION DumpList : STRING;
        PROCEDURE SortSymbols;
-       FUNCTION InRange(First	: DWORD;
-			            Last	: DWORD) : BOOLEAN;
+       FUNCTION InRange(AAddress   : DWORD) : BOOLEAN;
        PROCEDURE RemoveBlanks;
        PROCEDURE SaveSymbolsToFile(AFileName	: STRING;
 				                   ASymbolType	: TSymbolType;
                                    Equate       : STRING);
        PROCEDURE AddFile(AFileName  : STRING);
        PROCEDURE ImportFiles;
+       PROCEDURE ResolveFromList(OtherList  : TSymbolList);
      END;
 
 implementation
@@ -215,7 +219,8 @@ FUNCTION TSymbolList.AddAddress(Address	    : DWORD;
 				                ASType	    : TSymbolType = stGenerated;
                                 ARefCount   : INTEGER = 0) : STRING;
 
-VAR SymIndex : INTEGER;
+VAR SymAIndex   : INTEGER;
+    SymLIndex   : INTEGER;
 
 BEGIN;
   Result:='';
@@ -225,17 +230,24 @@ BEGIN;
     IF (ALabel='') THEN
       ALabel:=Format('L%4.4X',[Address]);
 
-    SymIndex:=IndexOfLabel(ALabel);
-    IF (SymIndex<0) THEN
+    SymLIndex:=IndexOfLabel(ALabel);
+
+    IF (SymLIndex<0) THEN
     BEGIN;
-      SymIndex:=AddSymbol(ALabel,Address,ASType,ARefCount);
+      SymAIndex:=IndexOfAddress(Address);
+      IF (SymAIndex<0) THEN
+      BEGIN;
+        SymAIndex:=AddSymbol(ALabel,Address,ASType,ARefCount);
 
-      WriteLnFmtV(FVerbosity,VBDebug,'%s:Label %s Address %4.4x',[FName,ALabel,Address]);
+        WriteLnFmtV(FVerbosity,VBDebug,'%s:Label %s Address %4.4x',[FName,ALabel,Address]);
 
-      Result:=TSymbol(Items[SymIndex]).Symbol;
+        Result:=TSymbol(Items[SymAIndex]).Symbol;
+      END
+      ELSE
+        TSymbol(Items[SymAIndex]).IncRefCount;
     END
     ELSE
-      TSymbol(Items[SymIndex]).IncRefCount;
+      TSymbol(Items[SymLIndex]).IncRefCount;
   END
 END;
 
@@ -248,14 +260,30 @@ VAR	SymbolIndex	: INTEGER;
 BEGIN;
   SymbolIndex:=IndexOfAddress(Address);
 
+  //WriteLn(SymbolIndex);
   IF (SymbolIndex < 0) THEN
     AddAddress(Address,ALabel);
 
   SymbolIndex:=IndexOfAddress(Address);
-  IF (IsEntry) THEN
+
+  IF ((IsEntry) AND (SymbolIndex>0)) THEN
     TSymbol(Items[SymbolIndex]).IncRefCount(1);
 
   Result:=Symbols[SymbolIndex];
+END;
+
+FUNCTION TSymbolList.AddOrRenameAddress(Address	    : DWORD;
+ 	                                    ALabel	    : STRING;
+                                        IsEntry     : BOOLEAN = FALSE) : STRING;
+VAR	SymbolIndex	: INTEGER;
+
+BEGIN;
+  SymbolIndex:=IndexOfAddress(Address);
+
+  IF (SymbolIndex < 0) THEN
+    SafeAddAddress(Address,ALabel,IsEntry)
+  ELSE
+    TSymbol(Items[SymbolIndex]).Symbol:=ALabel;
 END;
 
 PROCEDURE TSymbolList.DeleteAddress(Address	: DWORD);
@@ -354,9 +382,6 @@ BEGIN;
       BEGIN;
         Line:=Trim(LabelFile.Strings[LineNo]);
 
-//        CommentPos:=Pos(';',Line);
-//        IF (CommentPos>0) THEN
-//          SetLength(Line,CommentPos-1);
         Line:=ProcessComment(Line,';',FALSE);
         Line:=ProcessComment(Line,'*',TRUE);
 
@@ -367,8 +392,17 @@ BEGIN;
         SpacePos:=Pos('=',Line);
         IF (SpacePos>0) THEN
         BEGIN;
+          {Extract label and value from line}
           ALabel:=Trim(Copy(Line,1,SpacePos-1));
           AddrStr:=Trim(Copy(Line,SpacePos+1,MaxInt));
+
+          {Discard any of the value part after a space, to discard space}
+          {seperated comments}
+          SpacePos:=Pos(' ',AddrStr);
+          IF (SpacePos>0) THEN
+            AddrStr:=Trim(Copy(AddrStr,1,SpacePos-1));
+
+          {Convert address to numeric value}
           Address:=StrTointDef(AddrStr,-1);
 
           // If simple conversion does not work try evaluating it as an expression.
@@ -431,11 +465,10 @@ BEGIN;
   Sort(SymbolCompare);
 END;
 
-FUNCTION TSymbolList.InRange(First	: DWORD;
-			                 Last	: DWORD) : BOOLEAN;
+FUNCTION TSymbolList.InRange(AAddress   : DWORD) : BOOLEAN;
 
 BEGIN;
-  Result:=FALSE;
+  Result:=((AAddress >= FMinAddr) AND (AAddress <= FMaxAddr));
 END;
 
 PROCEDURE TSymbolList.RemoveBlanks;
@@ -495,6 +528,22 @@ BEGIN;
   END;
 
   FSymbolFiles.Clear;
+END;
+
+PROCEDURE TSymbolList.ResolveFromList(OtherList  : TSymbolList);
+
+VAR Address : DWORD;
+    Symbol  : STRING;
+    ItemNo  : INTEGER;
+
+BEGIN;
+  FOR ItemNo:=0 TO (Count-1) DO
+  BEGIN;
+    Address:=TSymbol(Items[ItemNo]).Address;
+    Symbol:=OtherList.GetSymbol(Address,FALSE);
+    IF (Symbol<>'') THEN
+      TSymbol(Items[ItemNo]).Symbol:=Symbol;
+  END;
 END;
 
 end.

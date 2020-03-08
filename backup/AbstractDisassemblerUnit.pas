@@ -128,13 +128,18 @@ END;
 
 PROCEDURE TADisassembler.Go;
 
+VAR ItemNo  : INTEGER;
+
 BEGIN;
   InitOpcodes;
   InitDirectives;
   SymbolList.ImportFiles;
   SymbolList.SafeAddAddress(Memory.BaseAddr,StartAddrLable,FALSE);
 
-  EntryPoints.ResolveFromList(SymbolList);
+  FOR ItemNo:=0 TO (EntryPoints.Count-1) DO
+  BEGIN;
+
+  END;
 END;
 
 FUNCTION TADisassembler.ValidCPU(CPUType : TCPU) : BOOLEAN;
