@@ -13,7 +13,7 @@ USES Types,SysUtils,Classes,Contnrs, CPUMemoryUnit, SymbolListUnit, UtilsUnit,
 
 TYPE    TItemType = (tyCode, tyDataByte, tyDataWord, tyDataDWord, tyDataString,
 		             tyDataStringTerm,tyDataStringTermHi,tyDataStringTermHiZ,
-                     tyDataWordEntry, tyDataWordRTSEntry, tyEquate);
+                     tyDataWordEntry, tyDataWordRTSEntry, tyEquate, tyIgnore);
 
 	TLocation = Class(TObject)
     PROTECTED
@@ -54,9 +54,12 @@ TYPE    TItemType = (tyCode, tyDataByte, tyDataWord, tyDataDWord, tyDataString,
       FUNCTION GetListing : TStringList;
       FUNCTION Add(ToAdd	: TLocation) : INTEGER;
 	  FUNCTION FixupString(Item	: TLocation) : STRING;
-	  FUNCTION FormatData(Item	: TLocation) : STRING;
-	  FUNCTION FormatCode(Item	: TLocation) : STRING;
-	  FUNCTION FormatDataOutput(Item	: TLocation) : STRING;
+	  FUNCTION FormatData(Item	    : TLocation;
+                          ALabel    : STRING) : STRING;
+	  FUNCTION FormatCode(Item	    : TLocation;
+                          ALabel    : STRING) : STRING;
+	  FUNCTION FormatDataOutput(Item	: TLocation;
+                                ALabel  : STRING) : STRING;
       FUNCTION GetLocation(Which	: INTEGER) : TLocation;
 	  FUNCTION SearchInsert(SymbolNo: INTEGER) : TLocation;
       FUNCTION NewSymbolInRange(SymbolNo    : INTEGER;
@@ -69,6 +72,8 @@ TYPE    TItemType = (tyCode, tyDataByte, tyDataWord, tyDataDWord, tyDataString,
       PROPERTY Locations[Which	: INTEGER] : TLocation READ GetLocation;
     PUBLIC
       OutputFileName	    : STRING;
+      Header                : TStringList;
+      Footer                : TStringList;
 
 	  PROPERTY Listing      : TStringList READ GetListing;
       PROPERTY PC           : DWORD READ GetPC WRITE SetPC;
@@ -219,12 +224,16 @@ BEGIN;
   FEntryPoints:=Entries;
   OutputFileName:='';
   FDebug:=FALSE;
+  Header:=TStringList.Create;
+  Footer:=TStringList.Create;
 END;
 
 DESTRUCTOR TMemoryList.Destroy;
 
 BEGIN;
   FListing.Free;
+  Header.Free;
+  Footer.Free;
   INHERITED Destroy;
 END;
 
@@ -238,6 +247,9 @@ VAR	ItemNo		: INTEGER;
 BEGIN;
   Sort(MemoryListCompare);
   Line:='';
+
+  {Add header (if any) }
+  FListing.AddStrings(Header);
 
   {Output symbols that are outside our range}
   FSymbols.SortSymbols;
@@ -261,26 +273,33 @@ BEGIN;
     Line:='';
     IF (ItemNo=0) THEN
     BEGIN;
-      PadToAdd(Line,FirstColumn,FParameters[mlOrigin]);
-      PadToAdd(Line,SecondColumn,Format('$%4.4X',[Item.Address]));
+      IF (FParameters[mlOrigin]<>'') THEN
+        Line:=FormatLine([FParameters[mlOrigin],Format('$%4.4X',[Item.Address])],[FirstColumn,SecondColumn]);
+
       Flisting.Add(Line);
     END;
     {Get symbol for this address if any}
     CodeLabel:=FSymbols.GetSymbol(Item.Address,FALSE);
 
     IF ((CodeLabel<>'') AND (FSymbols.GetSymbolRefs(Item.Address)<>0)) THEN
-      Flisting.Add(Format('%s%s%s',[FParameters[mlLabelPrefix],CodeLabel,FParameters[mlLabelSuffix]]));
+      CodeLabel:=Format('%s%s%s',[FParameters[mlLabelPrefix],CodeLabel,FParameters[mlLabelSuffix]])
+    ELSE
+      CodeLabel:='';
 
     IF (Item.ItemType=tyCode) THEN
-      FListing.Add(FormatCode(Item))
+      FListing.Add(FormatCode(Item,CodeLabel))
     ELSE IF (Item.ItemType=tyEquate) THEN
       FListing.Add(Item.Text)
     ELSE
-      FListing.Add(FormatData(Item));
+      FListing.Add(FormatData(Item,CodeLabel));
   END;
   FListing.Add(FParameters[mlLabelPrefix]+EndAddrLable+FParameters[mlLabelSuffix]);
   IF (OutputFileName<>'') THEN
     FListing.Add(Format('%s "%s",%s,%s',[FParameters[mlSaveCmd],ChangeFileExt(OutputFileName,BinExt),StartAddrLable,EndAddrLable]));
+
+  {Add footer (if any) }
+  FListing.AddStrings(Footer);
+
   Result:=FListing;
 END;
 
@@ -340,7 +359,7 @@ BEGIN;
   END;
 
   {Include the terminator}
-  IF (DataType=tyDataStringTerm) THEN
+  IF (DataType in [tyDataStringTerm,tyDataStringTermHi]) THEN
     Count:=Count+1;
 
   IF ((DataType in[tyDataWordEntry,tyDataWordRTSEntry]) AND (Count>0)) THEN
@@ -449,7 +468,8 @@ BEGIN;
   Item.Text:=Result;
 END;
 
-FUNCTION TMemoryList.FormatData(Item	: TLocation) : STRING;
+FUNCTION TMemoryList.FormatData(Item	: TLocation;
+                                ALabel  : STRING) : STRING;
 
 CONST	DefBytesPerLine	= 8;
 	    StrBytesPerLine = 64;
@@ -462,7 +482,7 @@ VAR ItemSize	: INTEGER;
 
 BEGIN;
   Result:='';
-  //ItemSize:=GetItemSize(Item);
+
   ItemSize:=Item.GetItemSize;
 
   IF (Item.Length>0) THEN
@@ -488,7 +508,10 @@ BEGIN;
     BEGIN;
       IF (ByteNo=BytesPerLine) THEN
       BEGIN;
-        Result:=Result+FormatDataOutput(Item);
+        Result:=Result+FormatDataOutput(Item,ALabel);
+
+        IF (Item.Text<>'') THEN
+          ALabel:='';     { So that only first line has label }
         Item.Text:='';
         ByteNo:=0;
       END;
@@ -502,26 +525,31 @@ BEGIN;
         tyDataString,
         tyDataStringTerm,
         tyDataStringTermHi,
-        tyDataStringTermHiZ     : Item.Text:=Item.Text+FMemory.ReadChar;
+        tyDataStringTermHiZ     : Item.Text:=Item.Text+CHR(FMemory.ReadByte AND $7F);
       END;
 
       ByteNo:=ByteNo+ItemSize;
       ItemNo:=ItemNo+1;
     END;
     IF (Item.Text<>'') THEN
-      Result:=Result+FormatDataOutput(Item);
+      Result:=Result+FormatDataOutput(Item,ALabel);
 
   END;
 END;
 
-FUNCTION TMemoryList.FormatCode(Item	: TLocation) : STRING;
+FUNCTION TMemoryList.FormatCode(Item	: TLocation;
+                                ALabel  : STRING) : STRING;
 
 VAR	SpacePos	: INTEGER;
 	OpCode		: STRING;
 	Oprands		: STRING;
 
 BEGIN;
-  Result:='';
+  IF (ALabel<>'') THEN
+    Result:=ALabel
+  ELSE
+    Result:='';
+
   SpacePos:=Pos(' ',Item.Text);
 
   IF (Item.Text[1]<>FParameters[mlCommentChar]) THEN
@@ -555,7 +583,8 @@ END;
 
 
 
-FUNCTION TMemoryList.FormatDataOutput(Item	: TLocation) : STRING;
+FUNCTION TMemoryList.FormatDataOutput(Item	    : TLocation;
+                                      ALabel    : STRING) : STRING;
 
 BEGIN;
   Result:='';
@@ -566,15 +595,15 @@ BEGIN;
       FixupString(Item);
 
     CASE Item.ItemType OF
-      tyDataByte	        : Result:=Format('%s%s    %s',[IndentStr,FParameters[mlDefineByte],Item.Text]);
+      tyDataByte	        : Result:=FormatLine([ALabel,FParameters[mlDefineByte],Item.Text],[0,FirstColumn,SecondColumn]);
       tyDataWord,
-      tyDataWordEntry	    : Result:=Format('%s%s    %s',[IndentStr,FParameters[mlDefineWord],Item.Text]);
-      tyDataWordRTSEntry    : Result:=Format('%s%s    %s',[IndentStr,FParameters[mlDefineWord],Item.Text]);
-      tyDataDWord	        : Result:=Format('%s%s    %s',[IndentStr,FParameters[mlDefineDWord],Item.Text]);
+      tyDataWordEntry	    : Result:=FormatLine([ALabel,FParameters[mlDefineWord],Item.Text],[0,FirstColumn,SecondColumn]);
+      tyDataWordRTSEntry    : Result:=FormatLine([ALabel,FParameters[mlDefineWord],Item.Text],[0,FirstColumn,SecondColumn]);
+      tyDataDWord	        : Result:=FormatLine([ALabel,FParameters[mlDefineDWord],Item.Text],[0,FirstColumn,SecondColumn]);
       tyDataString,
       tyDataStringTerm,
-      tyDataStringTermHi,
-      tyDataStringTermHiZ   : Result:=Format('%s%s    %s',[IndentStr,FParameters[mlDefineString],Item.Text]);
+      tyDataStringTermHiZ   : Result:=FormatLine([ALabel,FParameters[mlDefineString],Item.Text],[0,FirstColumn,SecondColumn]);
+      tyDataStringTermHi    : Result:=FormatLine([ALabel,FParameters[mlDefineStringh],Item.Text],[0,FirstColumn,SecondColumn]);
     END;
     IF(Result[Length(Result)]=',') THEN
       SetLength(Result,Length(Result)-1);

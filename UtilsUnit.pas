@@ -21,6 +21,9 @@ FUNCTION PadToAddFmt(VAR ToPad	: STRING;
 		             FormatStr  : STRING;
                      ToAdd      : ARRAY OF CONST) : STRING;
 
+FUNCTION FormatLine(Params  : ARRAY OF STRING;
+                    Cols    : ARRAY OF INTEGER) : STRING;
+
 FUNCTION SwapWord(AWord : WORD) : WORD;
 
 implementation
@@ -71,4 +74,21 @@ BEGIN;
   LSB := (AWord AND $00FF);
   Result:=(LSB SHL 8)+MSB;
 END;
+
+FUNCTION FormatLine(Params  : ARRAY OF STRING;
+                    Cols    : ARRAY OF INTEGER) : STRING;
+
+VAR Idx : INTEGER;
+
+BEGIN;
+  IF (Length(Params) <> Length(Cols)) THEN
+    Raise Exception.CreateFmt('Error in Format line length of Params (%d) <> length of Cols (%d)',[Length(Params),Length(Cols)]);
+
+  Result:='';
+  FOR Idx:=0 TO (Length(Params)-1) DO
+  BEGIN;
+    PadToAdd(Result,Cols[Idx],Params[Idx]);
+  END;
+END;
+
 end.

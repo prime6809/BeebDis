@@ -54,6 +54,8 @@ TYPE TCPUmemory = Class(TObject)
 			              Count		: DWORD);
        PROCEDURE FlagCode(Location	: DWORD;
 			              Count		: DWORD);
+       PROCEDURE FlagUnused(Location	: DWORD;
+			                Count		: DWORD);
        FUNCTION GetFlag : CHAR;
        FUNCTION FindCode : BOOLEAN;
        FUNCTION AreaLength(AType	    : CHAR) : DWORD;
@@ -182,6 +184,12 @@ PROCEDURE TCPUmemory.FlagCode(Location	: DWORD;
 
 BEGIN;
   FlagArea(Location,Count,IsCode);
+END;
+PROCEDURE TCPUmemory.FlagUnused(Location	: DWORD;
+			                    Count		: DWORD);
+
+BEGIN;
+  FlagArea(Location,Count,IsUnused);
 END;
 
 FUNCTION TCPUmemory.GetFlag : CHAR;

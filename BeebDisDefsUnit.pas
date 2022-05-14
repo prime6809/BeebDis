@@ -4,20 +4,22 @@ interface
 
 CONST
 	Major	= 1;
-	Minor	= 25;
+	Minor	= 30;
 
 {$IFDEF UNIX}
 	Eol		= #$0A;
 {$ELSE}
 	Eol		= #$0D+#$0A;
 {$ENDIF}
-    FirstColumn	    = 8;
-	SecondColumn	= 16;
+    FirstColumn	    = 16;
+	SecondColumn	= 24;
+    ThirdColumn     = 32;
 
 	StartAddrLable  = 'BeebDisStartAddr';
     EndAddrLable  	= 'BeebDisEndAddr';
 	BinExt		    = '.bin';
     TokenPC		    = 'pc';
+    TokenU          = 'u';          { ,U relative for 6809 under OS-9 }
 
 	OptHexDump	    = 'HexDump';
 	OptHexDumpFile	= 'HexDumpFile';

@@ -129,8 +129,8 @@ END;
 PROCEDURE TADisassembler.Go;
 
 BEGIN;
+  InitDirectives;   { Do this first, so directives can affect other init }
   InitOpcodes;
-  InitDirectives;
   SymbolList.ImportFiles;
   SymbolList.SafeAddAddress(Memory.BaseAddr,StartAddrLable,FALSE);
 

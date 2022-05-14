@@ -8,7 +8,7 @@ interface
 
 USES Types,SysUtils,Classes,CPUMemoryUnit, SymbolListUnit,UtilsUnit,
      MemoryListUnit,ConsoleUnit,AbstractDisassemblerUnit,
-     ParameterListUnit,StrUtils;
+     ParameterListUnit,StrUtils, BeebDisDefsUnit;
 
 CONST
     PreByte10       = $10;
@@ -33,6 +33,20 @@ CONST
 
     OS9Sync         = $87CD;            { OS9's module header identifier }
     OS9HeadCLength  = $08;              { Number of bytes in OS9 header that are parity checked }
+
+    OS9TypeMask     = $F0;              { Type mask from type/language byte }
+    OS9LangMask     = $0F;              { Language mask from type/language byte }
+
+    OS9TypeDevic    = $F0;              { Device Descriptor Module }
+    OS9TypeDrivr    = $E0;              { Physical Device Driver }
+    OS9TypeFlMgr    = $D0;              { File Manager }
+    OS9TypeSystm    = $C0;              { System Module }
+    OS9TypeData     = $40;              { Data Module }
+    OS9TypeMulti    = $30;              { Multi-Module }
+    OS9TypeSbrtn    = $20;              { Subroutine Module }
+    OS9TypePrgrm    = $10;              { Program Module }
+
+    PrefixURel      = 'u';              { Prefix for ,u relative offsets for OS9 }
 
     DDHeadStart     = $55;              { Dragon dos / DragonMMC executable header start marker }
     DDHeadEnd       = $AA;              { Dragon dos / DragonMMC executable header end marker }
@@ -69,9 +83,12 @@ TYPE
       TargetAddr    : WORD;
       IndexByte     : BYTE;
       CommentStr    : STRING;
+      IsOS9         : BOOLEAN;
+      OS9Storage    : WORD;
 
       FUNCTION GetTargetLable(ATargetAddr   : WORD;
-                              ATargetIsCode : BOOLEAN) : STRING;
+                              ATargetIsCode : BOOLEAN;
+                              Prefix        : STRING = 'L') : STRING;
 
       FUNCTION DecodeImmediate  : STRING;
       FUNCTION DecodeDirect     : STRING;
@@ -81,6 +98,9 @@ TYPE
       FUNCTION DecodeImplied    : STRING;
       FUNCTION DecodeRelative   : STRING;
       FUNCTION DecodeOS9Call    : STRING;
+
+      FUNCTION GetOS9TypeLang(TypeLang  : BYTE) : STRING;
+      FUNCTION GetOS9AttrRev(AttrRev    : BYTE) : STRING;
 
       FUNCTION CheckOS9Header   : BOOLEAN;
       FUNCTION CheckDDosHeader  : BOOLEAN;
@@ -94,7 +114,7 @@ TYPE
                            InOpMode     : TAddressMode;
 			     	       InCPU		: TCPUSet = [tc6809];
                            InBranch		: BOOLEAN = FALSE);
-
+      PROCEDURE ResolveOS9UVars;
     PUBLIC
       CONSTRUCTOR Create;
       DESTRUCTOR Destroy; override;
@@ -112,6 +132,8 @@ BEGIN;
   FMinCPU:=tc6809;
   FMaxCPU:=tc6809;
   FSwapWords:=TRUE;
+  IsOS9:=FALSE;
+  OS9Storage:=0;
 END;
 
 DESTRUCTOR TDisassembler6809.Destroy;
@@ -131,6 +153,7 @@ BEGIN;
   {If we are disassembling an OS9 module, then select this behavior}
   IF (LowerCase(Parameters[parExecFormat])=exeOS9Mod) THEN
   BEGIN;
+    IsOS9:=TRUE;
     MakeOpCode($103F,'OS9 %s',    1,amOS9);
     CheckOS9Header;
   END;
@@ -163,21 +186,25 @@ BEGIN;
   { Find any remaining un-processed bytes and mark them as byte data}
   WHILE (Memory.FindCode) DO
     MemoryList.AddData(tyDataByte,'pc',Memory.AreaLength(IsCode));
+
+  IF (IsOS9) THEN
+    ResolveOS9UVars;
 END;
 
 FUNCTION TDisassembler6809.GetTargetLable(ATargetAddr   : WORD;
-                                          ATargetIsCode : BOOLEAN) : STRING;
+                                          ATargetIsCode : BOOLEAN;
+                                          Prefix        : STRING = 'L') : STRING;
 
 BEGIN
   Result:=EntryPoints.GetSymbol(ATargetAddr,FALSE);
   IF (Result='') THEN
   BEGIN;
-    Result:=SymbolList.GetSymbol(ATargetAddr,True,1);
+    Result:=SymbolList.GetSymbol(ATargetAddr,True,1,Prefix);
 
     IF (ATargetIsCode AND EntryPoints.InRange(ATargetAddr)) THEN
     begin;
       EntryPoints.SafeAddAddress(ATargetAddr,Result,TRUE);
-      WriteLnFmt('%4.4X, %s',[ATargetAddr,Result]);
+      //WriteLnFmt('%4.4X, %s',[ATargetAddr,Result]);
     end;
   END;
 END;
@@ -211,7 +238,10 @@ BEGIN;
   {GetDP ref}
   DPByte:=Memory.ReadByte(IsDone);
   //TargetLable:=SymbolList.GetSymbol(DPByte,TRUE,1);
-  TargetLable:=GetTargetLable(DPByte,Op.IsBranch);
+  IF (IsOS9) THEN
+    TargetLable:=GetTargetLable(DPByte,Op.IsBranch,PrefixURel)
+  ELSE
+    TargetLable:=GetTargetLable(DPByte,Op.IsBranch);
   Result:=Format(Op.OpStr,[TargetLable]);
 END;
 
@@ -222,6 +252,7 @@ CONST
     IndirectMask    = $10;
     IndexModeMask   = $0F;
     FiveBitMask     = $80;
+    RegU            = 'U';
 
 VAR RegSelect       : BYTE;
     ShortOffs       : INTEGER;
@@ -230,6 +261,7 @@ VAR RegSelect       : BYTE;
     IndexMode       : BYTE;
     ByteOffs        : Shortint;
     WordOffs        : SmallInt;
+    OffsStr         : STRING;
 
 BEGIN;
   IndexByte:=Memory.ReadByte(IsDone);
@@ -248,7 +280,10 @@ BEGIN;
     IF (ShortOffs > $0F) THEN
       ShortOffs:=-16+(ShortOffs AND $0F);
 
-    EffectiveStr:=Format('%d,%s',[ShortOffs,RegName]);
+    IF ((IsOS9) AND (RegName=RegU)) THEN
+      EffectiveStr:=Format('%s,%s',[GetTargetLable(ShortOffs,Op.IsBranch,PrefixURel) ,RegName])
+    ELSE
+      EffectiveStr:=Format('%d,%s',[ShortOffs,RegName]);
   END
   ELSE
   BEGIN;
@@ -264,16 +299,22 @@ BEGIN;
       $06   : EffectiveStr:=Format('A,%s',[RegName]);
       $08   : BEGIN;
                 ByteOffs:=Memory.ReadByte(IsDone);
-                EffectiveStr:=Format('%d,%s',[ByteOffs,RegName]);
+                IF ((IsOS9) AND (RegName=RegU)) THEN
+                  EffectiveStr:=Format('<%s,%s',[GetTargetLable(ByteOffs,Op.IsBranch,PrefixURel),RegName])
+                ELSE
+                  EffectiveStr:=Format('<%d,%s',[ByteOffs,RegName]);
               END;
       $09   : BEGIN;
                 WordOffs:=Memory.ReadWord(IsDone);
-                EffectiveStr:=Format('%d,%s',[WordOffs,RegName]);
+                IF ((IsOS9) AND (RegName=RegU)) THEN
+                  EffectiveStr:=Format('%s,%s',[GetTargetLable(WordOffs,Op.IsBranch,PrefixURel),RegName])
+                ELSE
+                  EffectiveStr:=Format('%d,%s',[WordOffs,RegName]);
               END;
       $0B   : EffectiveStr:=Format('D,%s',[RegName]);
       $0C   : BEGIN;
                 ByteOffs:=Memory.ReadByte(IsDone);
-                EffectiveStr:=Format('%s,PCR',[GetTargetLable(CalcRelative8(ByteOffs),FALSE)]);
+                EffectiveStr:=Format('<%s,PCR',[GetTargetLable(CalcRelative8(ByteOffs),FALSE)]);
               END;
       $0D   : BEGIN;
                 WordOffs:=Memory.ReadWord(IsDone);
@@ -470,7 +511,7 @@ BEGIN;
     $49 : TargetLable:='F$LDABX';         { Load A from 0;X in task B }
     $4A : TargetLable:='F$STABX';         { Store A at 0;X in task B }
     $4B : TargetLable:='F$AllPrc';        { Allocate Process Descriptor }
-    $4C : TargetLable:='F$DelPrc';        { Deallocate Process Descriptor }
+    $4C : TargetLable:='F$DelPrc';        { Deallocate Parameters[mlOrigin]Process Descriptor }
     $4D : TargetLable:='F$ELink';         { Link using Module Directory Entry }
     $4E : TargetLable:='F$FModul';        { Find Module Directory Entry }
     $4F : TargetLable:='F$MapBlk';        { Map Specific Block }
@@ -500,9 +541,57 @@ BEGIN;
     $8F : TargetLable:='I$Close';         { Close Path }
     $90 : TargetLable:='I$DeletX'         { Delete from current exec dir }
   ELSE
-    TargetLable:='invalid';
+    TargetLable:=Format('invalid %2.2X',[CallNo]);
   END;
   Result:=Format(Op.OpStr,[TargetLable]);
+END;
+
+FUNCTION TDisassembler6809.GetOS9TypeLang(TypeLang  : BYTE) : STRING;
+
+VAR ModTypeStr  : STRING;
+    ModLangStr  : STRING;
+
+BEGIN;
+  { Module type in top 4 bits }
+  CASE (TypeLang AND OS9TypeMask) OF
+    OS9TypePrgrm : ModTypeStr:='Prgrm';
+    OS9TypeSbrtn : ModTypeStr:='Sbrtn';
+    OS9TypeMulti : ModTypeStr:='Multi';
+    OS9TypeData  : ModTypeStr:='Data';
+    OS9TypeSystm : ModTypeStr:='Systm';
+    OS9TypeFlMgr : ModTypeStr:='FlMgr';
+    OS9TypeDrivr : ModTypeStr:='Drivr';
+    OS9TypeDevic : ModTypeStr:='Devic';
+  ELSE
+    ModTypeStr:=Format('invalid_$%02X',[(TypeLang AND $F0)]);
+  END;
+
+  { Module language in bottom 4 bits }
+  CASE (TypeLang AND $0F) OF
+    $01 : ModLangStr:='Objct';
+    $02 : ModLangStr:='ICode';
+    $03 : ModLangStr:='PCode';
+    $04 : ModLangStr:='CCode';
+    $05 : ModLangStr:='CblCode';
+    $06 : ModLangStr:='FrtnCode';
+  ELSE
+    ModLangStr:=Format('invalid_$%02X',[(TypeLang AND $0F)]);
+  END;
+
+  Result:=Format('%s+%s',[ModTypeStr,ModLangStr]);
+END;
+
+FUNCTION TDisassembler6809.GetOS9AttrRev(AttrRev : BYTE)    : STRING;
+
+VAR AttrStr : STRING;
+
+BEGIN;
+  IF ((AttrRev AND $F0)=$80) THEN
+    AttrStr:='ReEnt'
+  ELSE
+    AttrStr:=Format('invalid_$%02X',[(AttrRev AND $f0)]);
+
+  Result:=AttrStr+'+rev';
 END;
 
 {
@@ -523,10 +612,16 @@ FUNCTION TDisassembler6809.CheckOS9Header   : BOOLEAN;
 VAR MSync       : WORD;
     MName       : WORD;
     MParity     : BYTE;
+    MType       : BYTE;
+    MAttr       : BYTE;
     MExec       : WORD;
+    MStor       : WORD;
     PCount      : WORD;
     Parity      : BYTE;
     PComment    : STRING;
+    Entry       : STRING;
+    CodeSize    : INTEGER;
+    Name        : STRING;
 
 BEGIN;
   Memory.PC:=Memory.BaseAddr;
@@ -541,32 +636,76 @@ BEGIN;
   Result:=(MSync=OS9Sync);
   IF (Result) THEN
   BEGIN;
-           Memory.ReadWord(NoChange);
-    MName:=Memory.ReadWord(NoChange);
-           Memory.ReadByte(NoChange);
-           Memory.ReadByte(NoChange);
+    SymbolList.ZeroBased:=TRUE;
+    EntryPoints.ZeroBased:=TRUE;
+
+           Memory.ReadWord(NoChange);   { Skip mod size }
+    MName:=Memory.ReadWord(NoChange);   { Offset of name }
+    MType:=Memory.ReadByte(NoChange);   { Module type }
+    MAttr:=Memory.ReadByte(NoChange);   { Module Attributes }
     MParity:=Memory.ReadByte(NoChange);
-    MExec:=Memory.ReadWord(NoChange);
-           Memory.ReadWord(NoChange);
+    MExec:=Memory.ReadWord(NoChange);   { Execution address }
+    MStor:=Memory.ReadWord(NoChange);   { Storage needed }
+
+    OS9Storage:=MStor;
 
     IF (Parity=MParity) THEN
       PComment:='OS9 header parity check, valid'
     ELSE
       PComment:=Format('OS9 header parity check, Invalid! should be %2.2X',[Parity]);
 
-    Memory.PC:=Memory.BaseAddr;
-    MemoryList.AddData(tyDataWord,'pc',1,0,'OS9 module identifier',1);
-    MemoryList.AddData(tyDataWord,'pc',1,0,'OS9 module size',0);
-    MemoryList.AddData(tyDataWord,'pc',1,0,'OS9 name offset',0);
-    MemoryList.AddData(tyDataByte,'pc',1,0,'OS9 Type & Language',0);
-    MemoryList.AddData(tyDataByte,'pc',1,0,'OS9 Attributes and revision',0);
-    MemoryList.AddData(tyDataByte,'pc',1,0,PComment,0);
-    MemoryList.AddData(tyDataWord,'pc',1,0,'OS9 exec offset',0);
-    MemoryList.AddData(tyDataWord,'pc',1,0,'OS9 permanent storage size',0);
+    WITH MemoryList.Header DO
+    BEGIN;
+      Clear;
+      Add('');
+      Add(FormatLine(['use','defsfile'],[FirstColumn,SecondColumn]));
+      Add('');
+      Add(FormatLine(['tylg','set',GetOS9TypeLang(MType)],[0,FirstColumn,SecondColumn]));
+      Add(FormatLine(['atrv','set',GetOS9AttrRev(MAttr)],[0,FirstColumn,SecondColumn]));
+      Add(FormatLine(['rev','set',IntToStr(MAttr AND $0F)],[0,FirstColumn,SecondColumn]));
+      Add('');
+      Add(FormatLine(['mod','eom,name,tylg,atrv,start,size'],[FirstColumn,SecondColumn]));
+      Add('');
+      Add(Format('; %d',[MStor]));
+      Add('');
+    END;
 
+    WITH MemoryList.Footer DO
+    BEGIN;
+      Clear;
+      Add('');
+      Add(FormatLine(['emod'],[FirstColumn]));
+      Add(FormatLine(['eom','equ','*'],[0,FirstColumn,SecondColumn]));
+      Add(FormatLine(['end'],[FirstColumn]));
+    END;
+
+    { Add name symbol at name definition }
+    SymbolList.AddOrRenameAddress(Memory.BaseAddr+MName,'name',FALSE);
+    IF (SymbolList.GetSymbolRefs(Memory.BaseAddr+MName)=0) THEN
+      SymbolList.GetSymbol(Memory.BaseAddr+MName,FALSE,1);
+
+    Memory.PC:=Memory.BaseAddr;
     MemoryList.AddData(tyDataStringTermHi,IntToStr(Memory.BaseAddr+MName),0,0,'OS9 Module name',1);
 
-    EntryPoints.GetSymbol(Memory.BaseAddr+MExec);
+    Memory.FlagUnused(Memory.BaseAddr,13);
+    Memory.FlagUnused(Memory.EndAddr-2,3);
+
+    Entry:=Format('%d',[Memory.BaseAddr+MExec]);
+    CodeSize:=(Memory.EndAddr-Memory.BaseAddr)-(MExec+3);
+
+    IF ((MType AND OS9TypeMask) = OS9TypeData) THEN
+    BEGIN;
+      MemoryList.AddData(tyDataByte,Entry,CodeSize,0,'',0);
+      SymbolList.GetSymbol(Memory.BaseAddr+MExec,TRUE,1);
+      SymbolList.AddOrRenameAddress(Memory.BaseAddr+MExec,'start');
+    END
+    ELSE
+    BEGIN;
+      EntryPoints.GetSymbol(Memory.BaseAddr+MExec);
+      EntryPoints.AddOrRenameAddress(Memory.BaseAddr+MExec,'start');
+    END;
+
+    Parameters[mlOrigin]:='';
 
     Result:=TRUE;
   END;
@@ -674,6 +813,9 @@ BEGIN;
         Instruction:=FormatInvalid(Location,OpCode,1);
     END;
 
+   // IF (Parameters.BoolParameters[mlOpcodeLower]) THEN
+   //   Instruction:=LowerCase(Instruction);
+
 //  IF (Op.Branch<>brRtsRti) THEN
     BEGIN;
       IF (NOT Op.IsBranch) THEN
@@ -709,9 +851,24 @@ PROCEDURE TDisassembler6809.MakeOpCode(OpNo		    : INTEGER;
 			     	                   InCPU		: TCPUSet = [tc6809];
                                        InBranch		: BOOLEAN = FALSE);
 
-VAR OpCode  : TOpCode6809;
+VAR OpCode      : TOpCode6809;
+    SpacePos    : INTEGER;
+    InOpStrL    : STRING;
 
 BEGIN;
+  { Make opcode lower case if mlOpcodeLower is set }
+  IF (Parameters.BoolParameters[mlOpcodeLower]) THEN
+  BEGIN;
+    InOpStrL:=LowerCase(InOpStr);
+    SpacePos:=Pos(' ',InOpStr);
+    IF (SpacePos>0) THEN
+    BEGIN;
+      SetLength(InOpStrL,SpacePos-1);
+      InOpStrL:=InOpStrL+Copy(InOpStr,SpacePos,MaxInt);
+    END;
+    InOpStr:=InOpStrL;
+  END;
+
   OpCode:=TOpCode6809.Create;
   WITH OpCode DO
   BEGIN;
@@ -1022,6 +1179,68 @@ BEGIN;
   MakeOpCode($11B3,'CMPU %s',   2,amExtended);
   MakeOpCode($11BC,'CMPS %s',   2,amExtended);
 END;
+{ Change U relative symbols into rmb directives and remove them from the }
+{ symbol list                                                            }
+
+PROCEDURE TDisassembler6809.ResolveOS9UVars;
+
+VAR Idx         : INTEGER;
+    Symbol      : STRING;
+    TempList    : TStringList;
+    Addr        : WORD;
+    ThisAddr    : WORD;
+    Reserve     : WORD;
+
+BEGIN;
+  TempList:=TStringList.Create;
+  TRY
+    WITH SymbolList DO
+    BEGIN;
+      SortSymbols;
+
+      { Copy U relative symbols }
+      FOR Idx:=0 TO (Count-1) DO
+      BEGIN;
+        Symbol:=TSymbol(Items[Idx]).Symbol;
+        IF (Symbol[1]=PrefixURel) THEN
+          TempList.Add(Symbol);
+      END;
+
+      { Remove found symbols from main list }
+      FOR Idx:=0 TO (TempList.Count-1) DO
+        SymbolList.DeleteAddress(StrToInt('$'+Copy(TempList.Strings[Idx],2,MaxInt)));
+
+      { Always make sure symbol u0000 exists, even if not directly refferenced }
+      IF (TempList.IndexOf('u0000')=-1) THEN
+        TempList.Insert(0,'u0000');
+
+      { Work out how many bytes each and make a list }
+      IF (OS9Storage <> 0) THEN
+        Addr:=OS9Storage
+      ELSE
+        Addr:=StrToInt('$'+Copy(TempList.Strings[TempList.Count-1],2,MaxInt))+1;
+
+      FOR Idx:=(TempList.Count-1) DOWNTO 0 DO
+      BEGIN;
+        Symbol:=TempList.Strings[Idx];
+        ThisAddr:=StrToInt('$'+Copy(Symbol,2,MaxInt));
+        Reserve:=Addr-ThisAddr;
+        TempList.Strings[Idx]:=FormatLine([Symbol,'rmb',IntToStr(Reserve)],[0,FirstColumn,SecondColumn]);
+        Addr:=Addr-Reserve;
+      END;
+
+      { Add u symbols to header }
+      MemoryList.Header.AddStrings(TempList);
+      IF (OS9Storage <> 0) THEN
+        MemoryList.Header.Add(FormatLine(['size','equ','.'],[0,FirstColumn,SecondColumn]))
+      ELSE
+        MemoryList.Header.Add(FormatLine(['size','equ','0'],[0,FirstColumn,SecondColumn]))
+
+    END;
+  FINALLY
+    TempList.Free;
+  END;
+END;
 
 PROCEDURE TDisassembler6809.InitDirectives;
 
@@ -1034,6 +1253,7 @@ BEGIN
   Parameters[mlDefineWord]:=    'FDB';
   Parameters[mlDefineDWord]:=   'FQB';
   Parameters[mlDefineString]:=  'FCC';
+  Parameters[mlDefineStringh]:= 'FCS';
   Parameters[mlOrigin]:=        'org';
   Parameters[mlBeginIgnore]:=   ' ifeq 1';
   Parameters[mlEndIgnore]:=     ' endc';
@@ -1041,6 +1261,7 @@ BEGIN
   Parameters[mlEquate]:=        'EQU';
   Parameters[mlCommentChar]:=   ';';
   Parameters[mlCommentCol]:=    '40';
+  Parameters[mlOpcodeLower]:=   '1';
 
   Parameters[numBinPrefix]:=    '%';
   Parameters[numOctPrefix]:=    '@';

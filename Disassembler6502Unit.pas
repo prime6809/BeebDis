@@ -458,6 +458,7 @@ BEGIN
   Parameters[mlDefineWord]:=    'EQUW';
   Parameters[mlDefineDWord]:=   'EQUD';
   Parameters[mlDefineString]:=  'EQUS';
+  Parameters[mlDefineStringh]:= 'EQUS';
   Parameters[mlOrigin]:=        'org';
   Parameters[mlBeginIgnore]:=   'if(0)';
   Parameters[mlEndIgnore]:=     'endif';

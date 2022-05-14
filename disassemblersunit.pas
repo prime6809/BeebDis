@@ -182,6 +182,12 @@ BEGIN;
   Memory.LoadFromFile(FileName,PBaseAddr);
   EntryPoints.SetRange(Memory.EndAddr,Memory.BaseAddr);
   WriteLnFmtV(FVerbosity,VBNormal,'Loaded %s at $%4.4X - $%4.4X',[FileName,Memory.BaseAddr,Memory.EndAddr]);
+
+  IF (SymbolList.ZeroBased) THEN
+    SymbolList.ZeroAddr:=PBaseAddr;
+
+  IF (EntryPoints.ZeroBased) THEN
+    EntryPoints.ZeroAddr:=PBaseAddr;
 END;
 
 END.

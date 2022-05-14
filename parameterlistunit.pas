@@ -21,6 +21,7 @@ CONST
     mlDefineWord    = 'DefineWord';     // words : EQUW, FDB etc
     mlDefineDWord   = 'DefineDWord';    // dwords : EQUD, FCD? etc
     mlDefineString  = 'DefineString';   // strings : EQUS, FCC etc
+    mlDefineStringh = 'DefineStringh';  // strings with hi bit set on last char FCS
     mlOrigin        = 'Origin';         // the origin : ORG etc
     mlEquate        = 'Equate';         // a symbol, =, EQU etc.
     mlBeginIgnore   = 'BeginIgnore';    // beginning of an ignored block
@@ -28,6 +29,8 @@ CONST
     mlSaveCmd       = 'SaveCommand';    // the save command (just for beebasm currently)
     mlCommentChar   = 'CommentChar';    // Character used to start a comment
     mlCommentCol    = 'CommentCol';     // (minimum) Column to start comments
+
+    mlOpcodeLower   = 'OpcodeLower';    // Opcodes lower case?
 
     numBinPrefix    = 'BinPrefix';      // Binary prefix (if any).
     numBinSuffix    = 'BinSuffix';      // Binary prefix (if any).

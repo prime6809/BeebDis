@@ -9,6 +9,9 @@ interface
 USES Types,Classes,Contnrs,SysUtils,fpexprpars,
      ConsoleUnit,UtilsUnit,BeebDisDefsUnit,ParameterListUnit;
 
+CONST
+    DefPrefix   = 'L';
+
 TYPE
      TSymbolType	= (stLoaded, stGenerated, stAll);
 
@@ -35,15 +38,19 @@ TYPE
        FName	    : STRING;
        FMaxAddr     : DWORD;
        FMinAddr	    : DWORD;
+       FZeroAddr    : DWORD;
        FParameters  : TParameterList;
        FSymbolFiles : TStringList;
+       FZeroBased   : BOOLEAN;
+
 
        FUNCTION GetAddressFromIndex(Index : INTEGER) : DWORD;
        FUNCTION GetSymbolFromIndex(Index : INTEGER) : STRING;
        FUNCTION AddAddress(Address	    : DWORD;
 			               ALabel	    : STRING;
 			               ASType	    : TSymbolType = stGenerated;
-                           ARefCount    : INTEGER = 0) : STRING;
+                           ARefCount    : INTEGER = 0;
+                           Prefix       : STRING = DefPrefix) : STRING;
        FUNCTION IndexOfLabel(ALabel	: STRING) : INTEGER;
        FUNCTION IndexOfAddress(AAddress	: DWORD) : INTEGER;
 
@@ -62,6 +69,8 @@ TYPE
        PROPERTY Name				        : STRING READ FName WRITE FName;
        PROPERTY MinAddr				        : DWORD READ FMinAddr;
        PROPERTY MaxAddr				        : DWORD READ FMaxAddr;
+       PROPERTY ZeroAddr				    : DWORD READ FZeroAddr WRITE FZeroAddr;
+       PROPERTY ZeroBased                   : BOOLEAN READ FZeroBased WRITE FZeroBased;
 
        CONSTRUCTOR Create(AName		    : STRING;
                           Parameters    : TParameterList);
@@ -79,7 +88,8 @@ TYPE
 
        FUNCTION GetSymbol(Address	: DWORD;
 			              CanCreate	: BOOLEAN = TRUE;
-                          ARefCount : INTEGER = 0) : STRING;
+                          ARefCount : INTEGER = 0;
+                          Prefix    : STRING = DefPrefix) : STRING;
 
        FUNCTION GetSymbolValue(Address	    : DWORD;
        			               CanCreate    : BOOLEAN = TRUE;
@@ -158,6 +168,8 @@ BEGIN;
   OwnsObjects:=TRUE;
   FParameters:=Parameters;
   FSymbolFiles:=TStringList.Create;
+  FZeroBased:=FALSE;
+  FZeroAddr:=0;
 END;
 
 DESTRUCTOR TSymbolList.Destroy;
@@ -217,7 +229,8 @@ END;
 FUNCTION TSymbolList.AddAddress(Address	    : DWORD;
 			   	                ALabel	    : STRING;
 				                ASType	    : TSymbolType = stGenerated;
-                                ARefCount   : INTEGER = 0) : STRING;
+                                ARefCount   : INTEGER = 0;
+                                Prefix      : STRING = DefPrefix) : STRING;
 
 VAR SymAIndex   : INTEGER;
     SymLIndex   : INTEGER;
@@ -228,7 +241,12 @@ BEGIN;
   IF ((Address>=FMinAddr) AND (Address<=FMaxAddr)) THEN
   BEGIN;
     IF (ALabel='') THEN
-      ALabel:=Format('L%4.4X',[Address]);
+    BEGIN;
+      IF ((FZeroBased) AND (Address>=ZeroAddr) AND (Prefix=DefPrefix)) THEN
+        ALabel:=Format('%s%4.4X',[Trim(Prefix),Address-ZeroAddr])
+      ELSE
+        ALabel:=Format('%s%4.4X',[Trim(Prefix),Address]);
+    END;
 
     SymLIndex:=IndexOfLabel(ALabel);
 
@@ -299,7 +317,8 @@ END;
 
 FUNCTION TSymbolList.GetSymbol(Address		: DWORD;
 			                   CanCreate	: BOOLEAN = TRUE;
-                               ARefCount    : INTEGER = 0) : STRING;
+                               ARefCount    : INTEGER = 0;
+                               Prefix       : STRING = DefPrefix) : STRING;
 
 VAR	SymbolIndex	: INTEGER;
 
@@ -313,7 +332,7 @@ BEGIN;
   ELSE
   BEGIN;
     IF (CanCreate) THEN
-      Result:=AddAddress(Address,'',stGenerated,ARefCount)
+      Result:=AddAddress(Address,'',stGenerated,ARefCount,Prefix)
     ELSE
       Result:='';
   END;
