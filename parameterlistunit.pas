@@ -44,6 +44,8 @@ CONST
     parExecFormat   = 'ExecFormat';     // Executable format to load
     parRadix        = 'Radix';          // Radix for output numbers
 
+    parBytesPerLine = 'BytesPerLine';   // Bytes per line for data output
+
 TYPE
     TParameterList = class(TObject)
     PROTECTED

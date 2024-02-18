@@ -6,7 +6,7 @@ unit RamothStringListUnit;
 
 interface
 
-USES Classes,SysUtils;
+USES Classes,SysUtils, UtilsUnit;
 
 TYPE    PStrings	= ^TStrings;
 
@@ -26,6 +26,10 @@ TYPE    PStrings	= ^TStrings;
 
 	  FUNCTION AddFormat(FormatStr	: STRING;
           		         Params	    : ARRAY OF CONST) : INTEGER;
+
+      FUNCTION AddFormatLine(Params  : ARRAY OF STRING;
+                             Cols    : ARRAY OF INTEGER) : INTEGER;
+
 
       PROCEDURE First;
       FUNCTION Next : STRING;
@@ -57,6 +61,13 @@ FUNCTION TRamothStringList.AddFormat(FormatStr	: STRING;
 
 BEGIN;
   Result:=Add(Format(FormatStr,Params));
+END;
+
+FUNCTION TRamothStringList.AddFormatLine(Params  : ARRAY OF STRING;
+                                         Cols    : ARRAY OF INTEGER) : INTEGER;
+
+BEGIN;
+  Result:=Add(FormatLine(Params,Cols));
 END;
 
 PROCEDURE TRamothStringList.First;

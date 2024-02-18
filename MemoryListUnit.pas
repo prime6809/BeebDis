@@ -7,7 +7,8 @@ unit MemoryListUnit;
 interface
 
 USES Types,SysUtils,Classes,Contnrs, CPUMemoryUnit, SymbolListUnit, UtilsUnit,
-     BeebDisDefsUnit,ConsoleUnit,ParameterListUnit;
+     BeebDisDefsUnit,ConsoleUnit,ParameterListUnit, StrUtils,
+     RamothStringListUnit;
 
 {Parameter definition strings now defined in ParameterListUnit }
 
@@ -19,6 +20,7 @@ TYPE    TItemType = (tyCode, tyDataByte, tyDataWord, tyDataDWord, tyDataString,
     PROTECTED
       FItemType     : TItemType;    { Item type }
       FItemTypeStr  : STRING;
+
       PROCEDURE SetItemType(InType  : TItemType);
     PUBLIC
       Address	    : DWORD;	{ Address }
@@ -68,20 +70,27 @@ TYPE    TItemType = (tyCode, tyDataByte, tyDataWord, tyDataDWord, tyDataString,
       PROCEDURE SetPC(NewPC : DWORD);
     PROTECTED
       FParameters           : TParameterList;
+      FRadix                : BYTE;
 
       PROPERTY Locations[Which	: INTEGER] : TLocation READ GetLocation;
+      PROCEDURE SetRadix(ARadix : BYTE);
+      FUNCTION FormatNum(ANumber    : CARDINAL;
+                         ABytes     : INTEGER;
+                         Trailing   : STRING = '') : STRING;
     PUBLIC
       OutputFileName	    : STRING;
-      Header                : TStringList;
-      Footer                : TStringList;
+      Header                : TRamothStringList;
+      Footer                : TRamothStringList;
 
 	  PROPERTY Listing      : TStringList READ GetListing;
       PROPERTY PC           : DWORD READ GetPC WRITE SetPC;
+      PROPERTY Radix        : BYTE READ FRadix WRITE SetRadix;
 
       CONSTRUCTOR Create(Memory	    : TCPUmemory;
 		                 Symbols	: TSymbolList;
                          Entries	: TSymbolList;
-                         Parameters : TParameterList);
+                         Parameters : TParameterList;
+                         ARadix     : BYTE);
 	  PROCEDURE AddData(DataType	: TItemType;
 	                    Location	: STRING;
 		                Count	    : DWORD;
@@ -213,7 +222,8 @@ END;
 CONSTRUCTOR TMemoryList.Create(Memory	    : TCPUmemory;
 			                   Symbols	    : TSymbolList;
                                Entries	    : TSymbolList;
-                               Parameters   : TParameterList);
+                               Parameters   : TParameterList;
+                               ARadix       : BYTE);
 
 BEGIN;
   INHERITED Create;
@@ -224,8 +234,9 @@ BEGIN;
   FEntryPoints:=Entries;
   OutputFileName:='';
   FDebug:=FALSE;
-  Header:=TStringList.Create;
-  Footer:=TStringList.Create;
+  Header:=TRamothStringList.Create;
+  Footer:=TRamothStringList.Create;
+  Radix:=ARadix;
 END;
 
 DESTRUCTOR TMemoryList.Destroy;
@@ -279,9 +290,9 @@ BEGIN;
       Flisting.Add(Line);
     END;
     {Get symbol for this address if any}
-    CodeLabel:=FSymbols.GetSymbol(Item.Address,FALSE);
+    CodeLabel:=FSymbols.GetSymbol(Item.Address,DefAdSpace,FALSE);
 
-    IF ((CodeLabel<>'') AND (FSymbols.GetSymbolRefs(Item.Address)<>0)) THEN
+    IF ((CodeLabel<>'') AND (FSymbols.GetSymbolRefs(Item.Address,DefAdSpace)<>0)) THEN
       CodeLabel:=Format('%s%s%s',[FParameters[mlLabelPrefix],CodeLabel,FParameters[mlLabelSuffix]])
     ELSE
       CodeLabel:='';
@@ -372,12 +383,12 @@ BEGIN;
       ELSE
         LookupAddr:=FMemory.ReadWord;
 
-      LookupSymbol:=FSymbols.GetSymbol(LookupAddr,FALSE);
+      LookupSymbol:=FSymbols.GetSymbol(LookupAddr,DefAdSpace,FALSE);
 
       IF (LookupSymbol='') THEN
-        FEntryPoints.GetSymbol(LookupAddr,TRUE)
+        FEntryPoints.GetSymbol(LookupAddr,DefAdSpace,TRUE)
       ELSE
-        FEntryPoints.AddOrRenameAddress(LookupAddr,LookupSymbol,TRUE);
+        FEntryPoints.AddOrRenameAddress(LookupAddr,DefAdSpace,LookupSymbol,TRUE);
 
 {      IF (DataType=tyDataWordRTSEntry) THEN
         FEntryPoints.GetSymbol(FMemory.ReadWord+1,TRUE)
@@ -392,7 +403,7 @@ BEGIN;
   FMemory.FlagData(ToAdd.Address,DataSize);
   FMemory.PC:=ToAdd.Address+DataSize;
   Add(ToAdd);
-  FSymbols.GetSymbol(ToAdd.Address);
+  FSymbols.GetSymbol(ToAdd.Address,DefAdSpace);
 END;
 
 PROCEDURE TMemoryList.AddCode(Location	: DWORD;
@@ -420,9 +431,9 @@ BEGIN;
     WriteLnFmt('TMemoryList.AddEntry(%s,%s)',[Location,EntryLabel]);
 
   IF (LowerCase(Location)=TokenPC) THEN
-    FEntryPoints.AddOrRenameAddress(FMemory.PC,EntryLabel,TRUE)
+    FEntryPoints.AddOrRenameAddress(FMemory.PC,DefAdSpace,EntryLabel,TRUE)
   ELSE
-    FEntryPoints.AddOrRenameAddress(StrToIntDef(Location,0),EntryLabel,TRUE);
+    FEntryPoints.AddOrRenameAddress(StrToIntDef(Location,0),DefAdSpace,EntryLabel,TRUE);
 END;
 
 FUNCTION TMemoryList.FixupString(Item	: TLocation) : STRING;
@@ -495,7 +506,10 @@ BEGIN;
       tyDataWordEntry,
       tyDataWordRTSEntry    : BytesPerLine:=2;
     ELSE
-      BytesPerLine:=DefBytesPerLine;
+      IF (FParameters.IntegerParameters[parBytesPerLine]<>0) THEN
+        BytesPerLine:=FParameters.IntegerParameters[parBytesPerLine]
+      ELSE
+        BytesPerLine:=DefBytesPerLine;
     END;
 
     ItemNo:=0;
@@ -517,11 +531,11 @@ BEGIN;
       END;
 
       CASE Item.ItemType OF
-        tyDataByte 		        : Item.Text:=Item.Text+Format('$%2.2X,',[FMemory.ReadByte]);
-        tyDataWord              : Item.Text:=Item.Text+Format('$%4.4X,',[FMemory.ReadWord]);
-        tyDataWordEntry         : Item.Text:=Item.Text+FSymbols.GetSymbolValue(FMemory.ReadWord,FALSE)+',';
-        tyDataWordRTSEntry      : Item.Text:=Item.Text+FSymbols.GetSymbolValue(FMemory.ReadWord+1,FALSE)+'-1'+',';
-        tyDataDWord		        : Item.Text:=Item.Text+Format('$%8.8X,',[FMemory.ReadDWord]);
+        tyDataByte 		        : Item.Text:=Item.Text+FormatNum(FMemory.ReadByte,1,',');
+        tyDataWord              : Item.Text:=Item.Text+FormatNum(FMemory.ReadWord,2,',');
+        tyDataWordEntry         : Item.Text:=Item.Text+FSymbols.GetSymbolValue(FMemory.ReadWord,DefAdSpace,FALSE)+',';
+        tyDataWordRTSEntry      : Item.Text:=Item.Text+FSymbols.GetSymbolValue(FMemory.ReadWord+1,DefAdSpace,FALSE)+'-1'+',';
+        tyDataDWord		        : Item.Text:=Item.Text+FormatNum(FMemory.ReadDWord,4,',');
         tyDataString,
         tyDataStringTerm,
         tyDataStringTermHi,
@@ -693,9 +707,9 @@ BEGIN;
 
   WITH FSymbols DO
   BEGIN;
-    GetSymbol(Location.Address);
+    GetSymbol(Location.Address,DefAdSpace);
     Result:=TLocation.Create(SymbolAddress,0,'',tyCode,FALSE,'');
-    Result.Text:=Format('%s %s %s+%d',[GetSymbol(SymbolAddress),FParameters[mlEquate],GetSymbol(Location.Address,TRUE,1),SymbolAddress-Location.Address]);
+    Result.Text:=Format('%s %s %s+%d',[GetSymbol(SymbolAddress,DefAdSpace),FParameters[mlEquate],GetSymbol(Location.Address,DefAdSpace,TRUE,1),SymbolAddress-Location.Address]);
     TSymbol(FSymbols.Items[SymbolNo]).Symbol:='';
   END;
 END;
@@ -726,4 +740,28 @@ BEGIN
   FMemory.PC:=NewPC;
 END;
 
+PROCEDURE TMemoryList.SetRadix(ARadix : BYTE);
+
+BEGIN;
+  IF (ARadix IN [2,8,10,16]) THEN
+    FRadix:=ARadix;
+END;
+
+FUNCTION TMemoryList.FormatNum(ANumber  : CARDINAL;
+                               ABytes   : INTEGER;
+                               Trailing : STRING = '') : STRING;
+
+VAR APlaces : INTEGER;
+
+BEGIN;
+  APlaces:=MinWidth(FRadix,ABytes);
+  Result:=Dec2Numb(ANumber,APlaces,FRadix);
+  CASE FRadix OF
+    2   : Result:=FParameters[numBinPrefix]+Result+FParameters[numBinSuffix];
+    8   : Result:=FParameters[numOctPrefix]+Result+FParameters[numOctSuffix];
+    10  : Result:=FParameters[numDecPrefix]+Result+FParameters[numDecSuffix];
+    16  : Result:=FParameters[numHexPrefix]+Result+FParameters[numHexSuffix];
+  END;
+  Result:=Result+Trailing;
+END;
 end.

@@ -6,11 +6,13 @@ unit SymbolListUnit;
 
 interface
 
-USES Types,Classes,Contnrs,SysUtils,fpexprpars,
+USES Types,Classes,Contnrs,SysUtils,fpexprpars,StrUtils,
      ConsoleUnit,UtilsUnit,BeebDisDefsUnit,ParameterListUnit;
 
 CONST
     DefPrefix   = 'L';
+    DefAdSpace  = $00;  { Default address space }
+    AdSpaceAny  = $FF;  { Match any address space }
 
 TYPE
      TSymbolType	= (stLoaded, stGenerated, stAll);
@@ -18,17 +20,24 @@ TYPE
      TSymbol	= class(TObject)
        Symbol	: STRING;
        Address	: DWORD;
+       AdSpace  : BYTE;
        SType	: TSymbolType;
        RefCount : INTEGER;
 
        CONSTRUCTOR Create(ASymbol	: STRING;
        			          AAddress	: DWORD;
+                          AAdSpace  : BYTE;
        			          ASType	: TSymbolType;
                           ARefCount : INTEGER);
        FUNCTION FormatSymbol(Column	: INTEGER;
                              Equate : STRING) : STRING;
 
        PROCEDURE IncRefCount(AIncrement : INTEGER = 1);
+       FUNCTION Matches(AAddress    : DWORD;
+                        AAdSpace    : BYTE) : BOOLEAN;
+       FUNCTION LabMatches(ALabel   : STRING;
+                           AAdSpace : BYTE) : BOOLEAN;
+
 
      END;
 
@@ -47,21 +56,24 @@ TYPE
        FUNCTION GetAddressFromIndex(Index : INTEGER) : DWORD;
        FUNCTION GetSymbolFromIndex(Index : INTEGER) : STRING;
        FUNCTION AddAddress(Address	    : DWORD;
+                           AdSpace      : BYTE;
 			               ALabel	    : STRING;
 			               ASType	    : TSymbolType = stGenerated;
                            ARefCount    : INTEGER = 0;
                            Prefix       : STRING = DefPrefix) : STRING;
-       FUNCTION IndexOfLabel(ALabel	: STRING) : INTEGER;
-       FUNCTION IndexOfAddress(AAddress	: DWORD) : INTEGER;
+       FUNCTION IndexOfLabel(ALabel	    : STRING;
+                             AAdSpace   : BYTE{ = DefAdSpace}) : INTEGER;
+       FUNCTION IndexOfAddress(AAddress	: DWORD;
+                               AAdSpace : BYTE{ = DefAdSpace}) : INTEGER;
 
        FUNCTION AddSymbol(ALabel	: STRING;
 			              AAddress	: DWORD;
+                          AAdSpace  : BYTE;
 			              ASType	: TSymbolType = stGenerated;
                           ARefCount : INTEGER = 0) : INTEGER;
        FUNCTION ProcessComment(Line         : STRING;
                                CommentSeq   : STRING;
                                BeginOnly    : BOOLEAN = FALSE) : STRING;
-
     PUBLIC
        PROPERTY Symbols[Index	: INTEGER]	: STRING READ GetSymbolFromIndex;
        PROPERTY Addresses[Index	: INTEGER] 	: DWORD READ GetAddressFromIndex;
@@ -77,25 +89,31 @@ TYPE
        DESTRUCTOR Destroy; OVERRIDE;
        PROCEDURE SetRange(AMaxAddr	: DWORD;
 			              AMinAddr	: DWORD);
-       PROCEDURE DeleteAddress(Address	: DWORD);
+       PROCEDURE DeleteAddress(Address	: DWORD;
+                               AdSpace  : BYTE);
        FUNCTION SafeAddAddress(Address	: DWORD;
+                               AdSpace  : BYTE;
 			                   ALabel	: STRING;
                                IsEntry  : BOOLEAN = FALSE) : STRING;
 
        FUNCTION AddOrRenameAddress(Address	: DWORD;
+                                   AdSpace  : BYTE;
 			                       ALabel	: STRING;
                                    IsEntry  : BOOLEAN = FALSE) : STRING;
 
        FUNCTION GetSymbol(Address	: DWORD;
+                          AdSpace   : BYTE;
 			              CanCreate	: BOOLEAN = TRUE;
                           ARefCount : INTEGER = 0;
                           Prefix    : STRING = DefPrefix) : STRING;
 
        FUNCTION GetSymbolValue(Address	    : DWORD;
+                               AdSpace      : BYTE;
        			               CanCreate    : BOOLEAN = TRUE;
                                ARefCount    : INTEGER = 0) : STRING;
 
-       FUNCTION GetSymbolRefs(Address	    : DWORD) : INTEGER;
+       FUNCTION GetSymbolRefs(Address	    : DWORD;
+                              AdSpace       : BYTE) : INTEGER;
 
        PROCEDURE LoadLabels(FileName	: STRING);
        FUNCTION DumpList : STRING;
@@ -132,6 +150,7 @@ END;
 
 CONSTRUCTOR TSymbol.Create(ASymbol	    : STRING;
        			           AAddress	    : DWORD;
+                           AAdSpace     : BYTE;
        			           ASType	    : TSymbolType;
                            ARefCount    : INTEGER);
 
@@ -139,6 +158,7 @@ BEGIN;
   INHERITED Create;
   Symbol:=ASymbol;
   Address:=AAddress;
+  AdSpace:=AAdSpace;
   SType:=ASType;
   RefCount:=ARefCount;
 END;
@@ -155,6 +175,21 @@ PROCEDURE TSymbol.IncRefCount(AIncrement : INTEGER = 1);
 
 BEGIN;
   RefCount:=RefCount+AIncrement;
+END;
+
+FUNCTION TSymbol.Matches(AAddress    : DWORD;
+                         AAdSpace    : BYTE) : BOOLEAN;
+
+BEGIN;
+  Result:=((AAdSpace=AdSpaceAny) OR (AAdSpace = AdSpace)) AND (AAddress = Address);
+END;
+
+FUNCTION TSymbol.LabMatches(ALabel   : STRING;
+                            AAdSpace : BYTE) : BOOLEAN;
+
+BEGIN;
+  Result:=((AAdSpace=AdSpaceAny) OR (AAdSpace = AdSpace)) AND
+           (LowerCase(ALabel) = LowerCase(Symbol));
 END;
 
 CONSTRUCTOR TSymbolList.Create(AName		: STRING;
@@ -187,28 +222,29 @@ BEGIN;
   FMinAddr:=AMinAddr;
 END;
 
-FUNCTION TSymbolList.IndexOfLabel(ALabel	: STRING) : INTEGER;
+FUNCTION TSymbolList.IndexOfLabel(ALabel	: STRING;
+                                  AAdSpace  : BYTE{ = DefAdSpace}) : INTEGER;
 
 VAR	ItemNo	: INTEGER;
 
 BEGIN;
   ItemNo:=Count-1;
-  ALabel:=LowerCase(ALabel);
 
-  WHILE ((ItemNo>-1) AND (ALabel<>LowerCase(TSymbol(Items[ItemNo]).Symbol))) DO
+  WHILE ((ItemNo>-1) AND NOT TSymbol(Items[ItemNo]).LabMatches(ALabel,AAdSpace)) DO
     ItemNo:=ItemNo-1;
 
   Result:=ItemNo;
 END;
 
-FUNCTION TSymbolList.IndexOfAddress(AAddress	: DWORD) : INTEGER;
+FUNCTION TSymbolList.IndexOfAddress(AAddress	: DWORD;
+                                    AAdSpace    : BYTE{ = DefAdSpace}) : INTEGER;
 
 VAR	ItemNo	: INTEGER;
 
 BEGIN;
   ItemNo:=Count-1;
 
-  WHILE ((ItemNo>-1) AND (AAddress<>TSymbol(Items[ItemNo]).Address)) DO
+  WHILE ((ItemNo>-1) AND NOT TSymbol(Items[ItemNo]).Matches(AAddress,AAdSpace)) DO
     ItemNo:=ItemNo-1;
 
   Result:=ItemNo;
@@ -216,17 +252,19 @@ END;
 
 FUNCTION TSymbolList.AddSymbol(ALabel	    : STRING;
 			                   AAddress	    : DWORD;
+                               AAdSpace     : BYTE;
 			                   ASType	    : TSymbolType = stGenerated;
                                ARefCount    : INTEGER = 0) : INTEGER;
 
 VAR	ToAdd	: TSymbol;
 
 BEGIN;
-  ToAdd:=TSymbol.Create(ALabel,AAddress,ASType,ARefCount);
+  ToAdd:=TSymbol.Create(ALabel,AAddress,AAdSpace,ASType,ARefCount);
   Result:=Add(ToAdd);
 END;
 
 FUNCTION TSymbolList.AddAddress(Address	    : DWORD;
+                                AdSpace     : BYTE;
 			   	                ALabel	    : STRING;
 				                ASType	    : TSymbolType = stGenerated;
                                 ARefCount   : INTEGER = 0;
@@ -248,16 +286,16 @@ BEGIN;
         ALabel:=Format('%s%4.4X',[Trim(Prefix),Address]);
     END;
 
-    SymLIndex:=IndexOfLabel(ALabel);
+    SymLIndex:=IndexOfLabel(ALabel,AdSpace);
 
     IF (SymLIndex<0) THEN
     BEGIN;
-      SymAIndex:=IndexOfAddress(Address);
+      SymAIndex:=IndexOfAddress(Address,AdSpace);
       IF (SymAIndex<0) THEN
       BEGIN;
-        SymAIndex:=AddSymbol(ALabel,Address,ASType,ARefCount);
+        SymAIndex:=AddSymbol(ALabel,Address,AdSpace,ASType,ARefCount);
 
-        WriteLnFmtV(FVerbosity,VBDebug,'%s:Label %s Address %4.4x',[FName,ALabel,Address]);
+        WriteLnFmtV(FVerbosity,VBDebug,'%s:Label %s Address %4.4x, space=%2.2X',[FName,ALabel,Address,AdSpace]);
 
         Result:=TSymbol(Items[SymAIndex]).Symbol;
       END
@@ -270,19 +308,20 @@ BEGIN;
 END;
 
 FUNCTION TSymbolList.SafeAddAddress(Address	: DWORD;
+                                    AdSpace : BYTE;
 			                        ALabel	: STRING;
                                     IsEntry : BOOLEAN) : STRING;
 
 VAR	SymbolIndex	: INTEGER;
 
 BEGIN;
-  SymbolIndex:=IndexOfAddress(Address);
+  SymbolIndex:=IndexOfAddress(Address,AdSpace);
 
   //WriteLn(SymbolIndex);
   IF (SymbolIndex < 0) THEN
-    AddAddress(Address,ALabel);
+    AddAddress(Address,AdSpace,ALabel);
 
-  SymbolIndex:=IndexOfAddress(Address);
+  SymbolIndex:=IndexOfAddress(Address,AdSpace);
 
   IF ((IsEntry) AND (SymbolIndex>0)) THEN
     TSymbol(Items[SymbolIndex]).IncRefCount(1);
@@ -291,31 +330,34 @@ BEGIN;
 END;
 
 FUNCTION TSymbolList.AddOrRenameAddress(Address	    : DWORD;
+                                        AdSpace     : BYTE;
  	                                    ALabel	    : STRING;
                                         IsEntry     : BOOLEAN = FALSE) : STRING;
 VAR	SymbolIndex	: INTEGER;
 
 BEGIN;
-  SymbolIndex:=IndexOfAddress(Address);
+  SymbolIndex:=IndexOfAddress(Address,AdSpace);
 
   IF (SymbolIndex < 0) THEN
-    SafeAddAddress(Address,ALabel,IsEntry)
+    SafeAddAddress(Address,AdSpace,ALabel,IsEntry)
   ELSE
     TSymbol(Items[SymbolIndex]).Symbol:=ALabel;
 END;
 
-PROCEDURE TSymbolList.DeleteAddress(Address	: DWORD);
+PROCEDURE TSymbolList.DeleteAddress(Address	: DWORD;
+                                    AdSpace : BYTE);
 
 VAR	ItemNo	: INTEGER;
 
 BEGIN;
-  ItemNo:=IndexOfAddress(Address);
+  ItemNo:=IndexOfAddress(Address,AdSpace);
 
   IF (ItemNo>-1) THEN
     Delete(ItemNo);
 END;
 
 FUNCTION TSymbolList.GetSymbol(Address		: DWORD;
+                               AdSpace      : BYTE;
 			                   CanCreate	: BOOLEAN = TRUE;
                                ARefCount    : INTEGER = 0;
                                Prefix       : STRING = DefPrefix) : STRING;
@@ -323,7 +365,7 @@ FUNCTION TSymbolList.GetSymbol(Address		: DWORD;
 VAR	SymbolIndex	: INTEGER;
 
 BEGIN;
-  SymbolIndex:=IndexOfAddress(Address);
+  SymbolIndex:=IndexOfAddress(Address,AdSpace);
   IF (SymbolIndex >= 0) THEN
   BEGIN
     Result:=Symbols[SymbolIndex];
@@ -332,28 +374,30 @@ BEGIN;
   ELSE
   BEGIN;
     IF (CanCreate) THEN
-      Result:=AddAddress(Address,'',stGenerated,ARefCount,Prefix)
+      Result:=AddAddress(Address,AdSpace,'',stGenerated,ARefCount,Prefix)
     ELSE
       Result:='';
   END;
 END;
 
 FUNCTION TSymbolList.GetSymbolValue(Address	    : DWORD;
+                                    AdSpace     : BYTE;
        			                    CanCreate	: BOOLEAN = TRUE;
                                     ARefCount   : INTEGER = 0) : STRING;
 
 BEGIN;
-  Result:=GetSymbol(Address,CanCreate);
+  Result:=GetSymbol(Address,AdSpace,CanCreate);
   IF(Result='') THEN
     Result:=Format('$%4.4X',[Address]);
 END;
 
-FUNCTION TSymbolList.GetSymbolRefs(Address	    : DWORD) : INTEGER;
+FUNCTION TSymbolList.GetSymbolRefs(Address	    : DWORD;
+                                   AdSpace      : BYTE) : INTEGER;
 
 VAR	SymbolIndex	: INTEGER;
 
 BEGIN;
-  SymbolIndex:=IndexOfAddress(Address);
+  SymbolIndex:=IndexOfAddress(Address,AdSpace);
 
   IF (SymbolIndex >= 0) THEN
     Result:=TSymbol(Items[SymbolIndex]).RefCount
@@ -433,7 +477,7 @@ BEGIN;
 
           IF ((Address>-1) AND (Address<$10000)) THEN
           BEGIN
-            AddAddress(Address,ALabel,stLoaded);
+            AddAddress(Address,DefAdSpace,ALabel,stLoaded);
             WriteLnFmtV(FVerbosity,VBDebug,'Loaded lable %s value $%4.4X',[ALabel,Address]);
             IF(FParser.Identifiers.IndexOfIdentifier(ALabel) < 0) THEN
               FParser.Identifiers.AddIntegerVariable(ALabel,Address);
@@ -450,12 +494,16 @@ END;
 FUNCTION TSymbolList.DumpList : STRING;
 
 VAR	SymbolNo	: INTEGER;
+    Symbol      : TSymbol;
 
 BEGIN;
   Result:='';
 
   FOR SymbolNo:=0 TO (Count-1) DO
-    Result:=Result+Format('%4.4X, %s',[Addresses[SymbolNo],Symbols[SymbolNo]])+#$0d+#$0a;
+  BEGIN;
+    Symbol:=TSymbol(Items[SymbolNo]);
+    Result:=Result+Format('%4.4X, %2.2x %s %d',[Symbol.Address,Symbol.AdSpace,Symbol.Symbol,Symbol.RefCount])+#$0d+#$0a;
+  end;
 
 END;
 
@@ -552,6 +600,7 @@ END;
 PROCEDURE TSymbolList.ResolveFromList(OtherList  : TSymbolList);
 
 VAR Address : DWORD;
+    AdSpace : BYTE;
     Symbol  : STRING;
     ItemNo  : INTEGER;
 
@@ -559,10 +608,12 @@ BEGIN;
   FOR ItemNo:=0 TO (Count-1) DO
   BEGIN;
     Address:=TSymbol(Items[ItemNo]).Address;
-    Symbol:=OtherList.GetSymbol(Address,FALSE);
+    AdSpace:=TSymbol(Items[ItemNo]).AdSpace;
+    Symbol:=OtherList.GetSymbol(Address,AdSpace,FALSE);
     IF (Symbol<>'') THEN
       TSymbol(Items[ItemNo]).Symbol:=Symbol;
   END;
 END;
+
 
 end.

@@ -25,6 +25,8 @@ FUNCTION FormatLine(Params  : ARRAY OF STRING;
                     Cols    : ARRAY OF INTEGER) : STRING;
 
 FUNCTION SwapWord(AWord : WORD) : WORD;
+FUNCTION MinWidth(ARadix    : BYTE;
+                  NoBytes   : BYTE) : BYTE;
 
 implementation
 
@@ -88,6 +90,48 @@ BEGIN;
   FOR Idx:=0 TO (Length(Params)-1) DO
   BEGIN;
     PadToAdd(Result,Cols[Idx],Params[Idx]);
+  END;
+END;
+
+FUNCTION MinWidth(ARadix    : BYTE;
+                  NoBytes   : BYTE) : BYTE;
+
+BEGIN;
+  IF (ARadix=2) THEN
+  BEGIN;
+    CASE NoBytes OF
+      1 : Result:=8;
+      2 : Result:=16;
+    ELSE
+      Result:=32;
+    END;
+  END
+  ELSE IF (ARadix=8) THEN
+  BEGIN;
+    CASE NoBytes OF
+      1 : Result:=3;
+      2 : Result:=6;
+    ELSE
+      Result:=11;
+    END;
+  END
+  ELSE IF (ARadix=10) THEN
+  BEGIN;
+    CASE NoBytes OF
+      1 : Result:=3;
+      2 : Result:=5;
+    ELSE
+      Result:=10;
+    END;
+  END
+  ELSE IF (ARadix=16) THEN
+  BEGIN;
+    CASE NoBytes OF
+      1 : Result:=2;
+      2 : Result:=4;
+    ELSE
+      Result:=8;
+    END;
   END;
 END;
 

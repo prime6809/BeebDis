@@ -11,7 +11,7 @@ USES
 CONST
     MinOpCode       = 0;
     MaxOpCode       = $FFFF;
-    DefRadix        = 10;
+    DefRadix        = 16;
     DefVerbosity    = 1;
 
 
@@ -87,7 +87,7 @@ BEGIN;
   INHERITED Create;
   FVerbosity:=VBNormal;
   FCPU:=tcInvalid;
-  FRadix:=DefRadix;
+  Radix:=DefRadix;
   FSwapWords:=FALSE;
 END;
 
@@ -132,7 +132,7 @@ BEGIN;
   InitDirectives;   { Do this first, so directives can affect other init }
   InitOpcodes;
   SymbolList.ImportFiles;
-  SymbolList.SafeAddAddress(Memory.BaseAddr,StartAddrLable,FALSE);
+  SymbolList.SafeAddAddress(Memory.BaseAddr,DefAdSpace,StartAddrLable,FALSE);
 
   EntryPoints.ResolveFromList(SymbolList);
 END;
@@ -153,7 +153,11 @@ PROCEDURE TADisassembler.SetRadix(ARadix : BYTE);
 
 BEGIN;
   IF (ARadix IN [2,8,10,16]) THEN
+  BEGIN;
     FRadix:=ARadix;
+    IF (Assigned(MemoryList)) THEN
+      MemoryList.Radix:=FRadix;
+  END;
 END;
 
 FUNCTION TADisassembler.FormatInvalid(ALocation  : WORD;
@@ -171,8 +175,8 @@ BEGIN;
                    Parameters[mlCommentChar],ALocation,AOpCode])
 END;
 
-FUNCTION TADisassembler.FormatNum(ANumber        : CARDINAL;
-                                  APlaces        : INTEGER) : STRING;
+FUNCTION TADisassembler.FormatNum(ANumber   : CARDINAL;
+                                  APlaces   : INTEGER) : STRING;
 
 BEGIN;
   Result:=Dec2Numb(ANumber,APlaces,FRadix);

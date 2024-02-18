@@ -55,7 +55,7 @@ BEGIN;
   Memory:=TCPUmemory.Create;
   SymbolList:=TSymbolList.Create('SymbolList',Parameters);
   EntryPoints:=TSymbolList.Create('EntryPoints',Parameters);
-  MemoryList:=TMemoryList.Create(Memory,SymbolList,EntryPoints,Parameters);
+  MemoryList:=TMemoryList.Create(Memory,SymbolList,EntryPoints,Parameters,DefRadix);
   FSelected:=Invalid;
   FRadix:=DefRadix;
 END;

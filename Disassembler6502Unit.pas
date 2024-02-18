@@ -70,12 +70,12 @@ BEGIN;
 
   {If no entry point is speccified, assume the base address}
   IF (EntryPoints.Count<1) THEN
-    EntryPoints.GetSymbol(Memory.BaseAddr);
+    EntryPoints.GetSymbol(Memory.BaseAddr,DefAdSpace);
 
   WHILE (EntryPoints.Count>0) DO
   BEGIN;
     EntryPoint:=EntryPoints.Addresses[0];
-    SymbolList.SafeAddAddress(EntryPoint,'',TRUE);
+    SymbolList.SafeAddAddress(EntryPoint,DefAdSpace,'',TRUE);
     WriteLnFmtV(FVerbosity,VBVerbose,'Disassembling %4.4X',[EntryPoint]);
 
     Memory.PC:=EntryPoint;
@@ -84,7 +84,7 @@ BEGIN;
     BEGIN;
       DecodeInstruction;
     END;
-    EntryPoints.DeleteAddress(EntryPoint);
+    EntryPoints.DeleteAddress(EntryPoint,DefAdSpace);
 
     {Check to see if there is any more un-disassembled code ?}
   END;
@@ -161,17 +161,17 @@ BEGIN;
 
       IF (Op.Branch=brZPRelative) THEN
       BEGIN
-        TargetLable:=SymbolList.GetSymbol(TargetAddr,TRUE,1);
-        ZPLabel:=SymbolList.GetSymbol(ByteParam,TRUE,1);
+        TargetLable:=SymbolList.GetSymbol(TargetAddr,DefAdSpace,TRUE,1);
+        ZPLabel:=SymbolList.GetSymbol(ByteParam,DefAdSpace,TRUE,1);
       END
       ELSE IF (NOT IsImmediate) THEN
-        TargetLable:=SymbolList.GetSymbol(TargetAddr,TRUE,1)
+        TargetLable:=SymbolList.GetSymbol(TargetAddr,DefAdSpace,TRUE,1)
       ELSE
         TargetLable:=Format('%2.2X',[ByteParam]);
 
       {If this was a branch / jump or subroutine call add to Entry points}
       IF (Op.Branch<>brNone) THEN
-        EntryPoints.GetSymbol(TargetAddr);
+        EntryPoints.GetSymbol(TargetAddr,DefAdSpace);
     END;
     {Generate the line of code}
     IF(Op.Branch=brZPRelative) THEN

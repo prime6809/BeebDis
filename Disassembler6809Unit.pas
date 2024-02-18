@@ -57,6 +57,7 @@ CONST
     FlexSOR         = $02;              { Flex Start of binary record }
     FlexTransfer    = $16;              { Flex transfer (exec) address record }
 
+    AdSpaceURel     = $01;              { U relative address space }
 
 TYPE
     TAddressMode    = (amImmediate,     { oprand follows opcode in memory }
@@ -87,6 +88,7 @@ TYPE
       OS9Storage    : WORD;
 
       FUNCTION GetTargetLable(ATargetAddr   : WORD;
+                              AAdSpace      : BYTE;
                               ATargetIsCode : BOOLEAN;
                               Prefix        : STRING = 'L') : STRING;
 
@@ -164,12 +166,12 @@ BEGIN;
 
   {If no entry point is speccified, assume the base address}
   IF (EntryPoints.Count<1) THEN
-    EntryPoints.GetSymbol(Memory.BaseAddr);
+    EntryPoints.GetSymbol(Memory.BaseAddr,DefAdSpace);
 
   WHILE (EntryPoints.Count>0) DO
   BEGIN;
     EntryPoint:=EntryPoints.Addresses[0];
-    SymbolList.SafeAddAddress(EntryPoint,EntryPoints.Symbols[0],TRUE);
+    SymbolList.SafeAddAddress(EntryPoint,DefAdSpace,EntryPoints.Symbols[0],TRUE);
     WriteLnFmtV(FVerbosity,VBVerbose,'Disassembling %4.4X',[EntryPoint]);
 
     Memory.PC:=EntryPoint;
@@ -178,7 +180,7 @@ BEGIN;
     BEGIN;
       DecodeInstruction;
     END;
-    EntryPoints.DeleteAddress(EntryPoint);
+    EntryPoints.DeleteAddress(EntryPoint,DefAdSpace);
 
     {Check to see if there is any more un-disassembled code ?}
   END;
@@ -187,23 +189,27 @@ BEGIN;
   WHILE (Memory.FindCode) DO
     MemoryList.AddData(tyDataByte,'pc',Memory.AreaLength(IsCode));
 
+  //wRITELN(SymbolList.DumpList);
+
   IF (IsOS9) THEN
     ResolveOS9UVars;
+
 END;
 
 FUNCTION TDisassembler6809.GetTargetLable(ATargetAddr   : WORD;
+                                          AAdSpace      : BYTE;
                                           ATargetIsCode : BOOLEAN;
                                           Prefix        : STRING = 'L') : STRING;
 
 BEGIN
-  Result:=EntryPoints.GetSymbol(ATargetAddr,FALSE);
+  Result:=EntryPoints.GetSymbol(ATargetAddr,AAdSpace,FALSE);
   IF (Result='') THEN
   BEGIN;
-    Result:=SymbolList.GetSymbol(ATargetAddr,True,1,Prefix);
+    Result:=SymbolList.GetSymbol(ATargetAddr,AAdSpace,True,1,Prefix);
 
     IF (ATargetIsCode AND EntryPoints.InRange(ATargetAddr)) THEN
     begin;
-      EntryPoints.SafeAddAddress(ATargetAddr,Result,TRUE);
+      EntryPoints.SafeAddAddress(ATargetAddr,AAdSpace,Result,TRUE);
       //WriteLnFmt('%4.4X, %s',[ATargetAddr,Result]);
     end;
   END;
@@ -223,7 +229,7 @@ BEGIN;
   ELSE
   BEGIN
     IWord:=Memory.ReadWord(IsDone);
-    TargetLable:=SymbolList.GetSymbol(IWord,FALSE,1);
+    TargetLable:=SymbolList.GetSymbol(IWord,DefAdSpace,FALSE,1);
     IF (TargetLable='') THEN
       TargetLable:=Format('$%4.4X',[Iword]);
   END;
@@ -239,9 +245,9 @@ BEGIN;
   DPByte:=Memory.ReadByte(IsDone);
   //TargetLable:=SymbolList.GetSymbol(DPByte,TRUE,1);
   IF (IsOS9) THEN
-    TargetLable:=GetTargetLable(DPByte,Op.IsBranch,PrefixURel)
+    TargetLable:=GetTargetLable(DPByte,AdSpaceURel,Op.IsBranch,PrefixURel)
   ELSE
-    TargetLable:=GetTargetLable(DPByte,Op.IsBranch);
+    TargetLable:=GetTargetLable(DPByte,DefAdSpace,Op.IsBranch);
   Result:=Format(Op.OpStr,[TargetLable]);
 END;
 
@@ -280,8 +286,8 @@ BEGIN;
     IF (ShortOffs > $0F) THEN
       ShortOffs:=-16+(ShortOffs AND $0F);
 
-    IF ((IsOS9) AND (RegName=RegU)) THEN
-      EffectiveStr:=Format('%s,%s',[GetTargetLable(ShortOffs,Op.IsBranch,PrefixURel) ,RegName])
+    IF ((IsOS9) AND (RegName=RegU) AND (ShortOffs >= 0)) THEN
+      EffectiveStr:=Format('%s,%s',[GetTargetLable(ShortOffs,AdSpaceURel,Op.IsBranch,PrefixURel) ,RegName])
     ELSE
       EffectiveStr:=Format('%d,%s',[ShortOffs,RegName]);
   END
@@ -299,30 +305,30 @@ BEGIN;
       $06   : EffectiveStr:=Format('A,%s',[RegName]);
       $08   : BEGIN;
                 ByteOffs:=Memory.ReadByte(IsDone);
-                IF ((IsOS9) AND (RegName=RegU)) THEN
-                  EffectiveStr:=Format('<%s,%s',[GetTargetLable(ByteOffs,Op.IsBranch,PrefixURel),RegName])
+                IF ((IsOS9) AND (RegName=RegU) AND (ByteOffs >= 0)) THEN
+                  EffectiveStr:=Format('<%s,%s',[GetTargetLable(ByteOffs,AdSpaceURel,Op.IsBranch,PrefixURel),RegName])
                 ELSE
                   EffectiveStr:=Format('<%d,%s',[ByteOffs,RegName]);
               END;
       $09   : BEGIN;
                 WordOffs:=Memory.ReadWord(IsDone);
-                IF ((IsOS9) AND (RegName=RegU)) THEN
-                  EffectiveStr:=Format('%s,%s',[GetTargetLable(WordOffs,Op.IsBranch,PrefixURel),RegName])
+                IF ((IsOS9) AND (RegName=RegU) AND (WordOffs >= 0)) THEN
+                  EffectiveStr:=Format('%s,%s',[GetTargetLable(WordOffs,AdSpaceURel,Op.IsBranch,PrefixURel),RegName])
                 ELSE
                   EffectiveStr:=Format('%d,%s',[WordOffs,RegName]);
               END;
       $0B   : EffectiveStr:=Format('D,%s',[RegName]);
       $0C   : BEGIN;
                 ByteOffs:=Memory.ReadByte(IsDone);
-                EffectiveStr:=Format('<%s,PCR',[GetTargetLable(CalcRelative8(ByteOffs),FALSE)]);
+                EffectiveStr:=Format('<%s,PCR',[GetTargetLable(CalcRelative8(ByteOffs),DefAdSpace,FALSE)]);
               END;
       $0D   : BEGIN;
                 WordOffs:=Memory.ReadWord(IsDone);
-                EffectiveStr:=Format('%s,PCR',[GetTargetLable(CalcRelative16(WordOffs),FALSE)]);
+                EffectiveStr:=Format('%s,PCR',[GetTargetLable(CalcRelative16(WordOffs),DefAdSpace,FALSE)]);
               END;
       $0F   : BEGIN;
                 WordOffs:=Memory.ReadWord(IsDone);
-                EffectiveStr:=Format('%s',[GetTargetLable(WordOffs,FALSE)]);
+                EffectiveStr:=Format('%s',[GetTargetLable(WordOffs,DefAdSpace,FALSE)]);
               END;
       ELSE
         EffectiveStr:=Format('Invalid indexed byte : $%2.2X',[IndexByte]);
@@ -342,7 +348,7 @@ VAR DestWord    : WORD;
 
 BEGIN;
   DestWord:=Memory.ReadWord(IsDone);
-  TargetLable:=GetTargetLable(DestWord,Op.IsBranch);
+  TargetLable:=GetTargetLable(DestWord,DefAdSpace,Op.IsBranch);
   Result:=Format(Op.OpStr,[TargetLable]);
 END;
 
@@ -423,7 +429,7 @@ BEGIN;
 
   {Try getting target from entry list first, in case it has an explicitly}
   {defined symbol                                                        }
-  TargetLable:=GetTargetLable(RelDest,Op.IsBranch);
+  TargetLable:=GetTargetLable(RelDest,DefAdSpace,Op.IsBranch);
   Result:=Format(Op.OpStr,[TargetLable]);
 END;
 
@@ -657,16 +663,18 @@ BEGIN;
     WITH MemoryList.Header DO
     BEGIN;
       Clear;
+      AddFormat('* Disassembled by BeebDIS/6809, V%d.%2.2d, at %s',[Major,Minor,FormatDateTime('hh:nn YYYY-MM-DD',Now)]);
       Add('');
-      Add(FormatLine(['use','defsfile'],[FirstColumn,SecondColumn]));
+      AddFormatLine(['use','defsfile'],[FirstColumn,SecondColumn]);
       Add('');
-      Add(FormatLine(['tylg','set',GetOS9TypeLang(MType)],[0,FirstColumn,SecondColumn]));
-      Add(FormatLine(['atrv','set',GetOS9AttrRev(MAttr)],[0,FirstColumn,SecondColumn]));
-      Add(FormatLine(['rev','set',IntToStr(MAttr AND $0F)],[0,FirstColumn,SecondColumn]));
+      AddFormatLine(['tylg','set',GetOS9TypeLang(MType)],[0,FirstColumn,SecondColumn]);
+      AddFormatLine(['atrv','set',GetOS9AttrRev(MAttr)],[0,FirstColumn,SecondColumn]);
+      AddFormatLine(['rev','set',IntToStr(MAttr AND $0F)],[0,FirstColumn,SecondColumn]);
       Add('');
-      Add(FormatLine(['mod','eom,name,tylg,atrv,start,size'],[FirstColumn,SecondColumn]));
+      AddFormatLine(['mod','eom,name,tylg,atrv,start,size'],[FirstColumn,SecondColumn]);
       Add('');
-      Add(Format('; %d',[MStor]));
+      AddFormat('; %d',[MExec]);
+      AddFormat('; %d',[MStor]);
       Add('');
     END;
 
@@ -680,9 +688,9 @@ BEGIN;
     END;
 
     { Add name symbol at name definition }
-    SymbolList.AddOrRenameAddress(Memory.BaseAddr+MName,'name',FALSE);
-    IF (SymbolList.GetSymbolRefs(Memory.BaseAddr+MName)=0) THEN
-      SymbolList.GetSymbol(Memory.BaseAddr+MName,FALSE,1);
+    SymbolList.AddOrRenameAddress(Memory.BaseAddr+MName,DefAdSpace,'name',FALSE);
+    IF (SymbolList.GetSymbolRefs(Memory.BaseAddr+MName,DefAdSpace)=0) THEN
+      SymbolList.GetSymbol(Memory.BaseAddr+MName,DefAdSpace,FALSE,1);
 
     Memory.PC:=Memory.BaseAddr;
     MemoryList.AddData(tyDataStringTermHi,IntToStr(Memory.BaseAddr+MName),0,0,'OS9 Module name',1);
@@ -696,13 +704,16 @@ BEGIN;
     IF ((MType AND OS9TypeMask) = OS9TypeData) THEN
     BEGIN;
       MemoryList.AddData(tyDataByte,Entry,CodeSize,0,'',0);
-      SymbolList.GetSymbol(Memory.BaseAddr+MExec,TRUE,1);
-      SymbolList.AddOrRenameAddress(Memory.BaseAddr+MExec,'start');
+      SymbolList.GetSymbol(Memory.BaseAddr+MExec,DefAdSpace,TRUE,1);
+      SymbolList.AddOrRenameAddress(Memory.BaseAddr+MExec,DefAdSpace,'start');
     END
     ELSE
     BEGIN;
-      EntryPoints.GetSymbol(Memory.BaseAddr+MExec);
-      EntryPoints.AddOrRenameAddress(Memory.BaseAddr+MExec,'start');
+      IF (MExec > $0D) THEN
+      BEGIN;
+        EntryPoints.GetSymbol(Memory.BaseAddr+MExec,DefAdSpace);
+        EntryPoints.AddOrRenameAddress(Memory.BaseAddr+MExec,DefAdSpace,'start');
+      END;
     END;
 
     Parameters[mlOrigin]:='';
@@ -761,9 +772,9 @@ BEGIN;
     MemoryList.AddData(tyDataByte,'pc',1,0,'DragonDos / Dragon MMC Executable header ends',0);
 
     IF (DDLoad = CodeAddr) THEN
-      EntryPoints.GetSymbol(DDExec)
+      EntryPoints.GetSymbol(DDExec,DefAdSpace)
     ELSE
-      EntryPoints.GetSymbol(CodeAddr);
+      EntryPoints.GetSymbol(CodeAddr,DefAdSpace);
 
   END;
 END;
@@ -1208,7 +1219,7 @@ BEGIN;
 
       { Remove found symbols from main list }
       FOR Idx:=0 TO (TempList.Count-1) DO
-        SymbolList.DeleteAddress(StrToInt('$'+Copy(TempList.Strings[Idx],2,MaxInt)));
+        SymbolList.DeleteAddress(StrToInt('$'+Copy(TempList.Strings[Idx],2,MaxInt)),AdSpaceURel);
 
       { Always make sure symbol u0000 exists, even if not directly refferenced }
       IF (TempList.IndexOf('u0000')=-1) THEN
