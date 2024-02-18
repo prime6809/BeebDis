@@ -31,6 +31,9 @@ program BeebDis;
 {                                                                             }
 { 2019-01-23 Fixed a bug where symbol files not being read.                   }
 {       Added verbose keyword to control file.                                }
+{                                                                             }
+{ 2022-05-08 Added ability to disassemble OS-9 / NitrOS9 binaries.            }
+{                                                                             }
 
 uses
   SysUtils,
@@ -78,7 +81,7 @@ END;
 PROCEDURE SignOn;
 
 BEGIN;
-  WriteLnFmtV(Disassember.Verbosity,VBNormal,'BeebDis V%d.%2.2d 2019-01, Phill Harvey-Smith.',[Major,Minor]);
+  WriteLnFmtV(Disassember.Verbosity,VBNormal,'BeebDis V%d.%2.2d 2022-05, Phill Harvey-Smith.',[Major,Minor]);
 END;
 
 PROCEDURE Finalize;
@@ -132,7 +135,8 @@ STRINGTERM addr term	; String data until specified terminator is reached
 STRINGHI addr		    ; String data until a byte with high bit set is reached
 STRINGHIZ addr          ; String data until either a zero byte or a byte with
                         ; high bit set.
-ENTRY addr        	    ; Code entry point
+ENTRY addr [symbolname] ; Code entry point with optional symbol name otherwise
+                        ; use generated Lxxxx type name
 WORDENTRY addr count	; Use words at addr as entrypoints.
 WORDRTS addr count      ; Like wordentry but word pushed onto stack and jumped
                         ; to by rts, point to lable-1.
@@ -204,6 +208,10 @@ BEGIN;
       IF (Keyword=KWActive) THEN
           TryStrToBool(Split[1],Active);
 
+      { Set options in this pass of the control file }
+      IF (Keyword=KWOption) THEN
+          Disassember.Parameters[Split[1]]:=Split[2];
+
       IF (Active) THEN
       BEGIN;
 
@@ -232,6 +240,12 @@ BEGIN;
             NewControl.Add(ControlFile.Strings[LineNo]);
         END;
       END;
+    END;
+
+    IF (LowerCase(Disassember.Parameters[parExecFormat])='os9') THEN
+    BEGIN;
+      Disassember.SymbolList.ZeroBased:=TRUE;
+      Disassember.EntryPoints.ZeroBased:=TRUE;
     END;
 
     IF (InRepeat) THEN
@@ -328,8 +342,8 @@ BEGIN;
           IF (Keyword=KWNewPC) THEN
             MemoryList.PC:=StrToIntDef(Split[1],MemoryList.PC);
 
-          IF (Keyword=KWOption) THEN
-              Disassember.Parameters[Split[1]]:=Split[2];
+//          IF (Keyword=KWOption) THEN
+//              Disassember.Parameters[Split[1]]:=Split[2];
 
           IF (Keyword=KWRadix) THEN
             Disassember.Radix:=StrToIntDef(Split[1],DefRadix);

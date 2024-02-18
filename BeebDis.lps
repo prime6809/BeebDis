@@ -2,18 +2,17 @@
 <CONFIG>
   <ProjectSession>
     <PathDelim Value="\"/>
-    <Version Value="11"/>
+    <Version Value="12"/>
     <BuildModes Active="Default"/>
     <Units Count="16">
       <Unit0>
         <Filename Value="BeebDis.dpr"/>
         <IsPartOfProject Value="True"/>
         <IsVisibleTab Value="True"/>
-        <TopLine Value="126"/>
+        <TopLine Value="58"/>
         <CursorPos X="72" Y="84"/>
         <UsageCount Value="423"/>
         <Loaded Value="True"/>
-        <DefaultSyntaxHighlighter Value="Delphi"/>
       </Unit0>
       <Unit1>
         <Filename Value="MemoryListUnit.pas"/>
@@ -23,7 +22,6 @@
         <CursorPos X="85" Y="604"/>
         <UsageCount Value="423"/>
         <Loaded Value="True"/>
-        <DefaultSyntaxHighlighter Value="Delphi"/>
       </Unit1>
       <Unit2>
         <Filename Value="SymbolListUnit.pas"/>
@@ -33,7 +31,6 @@
         <CursorPos X="30" Y="98"/>
         <UsageCount Value="423"/>
         <Loaded Value="True"/>
-        <DefaultSyntaxHighlighter Value="Delphi"/>
       </Unit2>
       <Unit3>
         <Filename Value="ConsoleUnit.pas"/>
@@ -52,7 +49,6 @@
         <CursorPos X="17" Y="52"/>
         <UsageCount Value="423"/>
         <Loaded Value="True"/>
-        <DefaultSyntaxHighlighter Value="Delphi"/>
       </Unit4>
       <Unit5>
         <Filename Value="RamothStringListUnit.pas"/>
@@ -71,7 +67,6 @@
         <CursorPos X="16" Y="461"/>
         <UsageCount Value="423"/>
         <Loaded Value="True"/>
-        <DefaultSyntaxHighlighter Value="Delphi"/>
       </Unit6>
       <Unit7>
         <Filename Value="UtilsUnit.pas"/>
@@ -80,7 +75,6 @@
         <CursorPos X="44" Y="90"/>
         <UsageCount Value="423"/>
         <Loaded Value="True"/>
-        <DefaultSyntaxHighlighter Value="Delphi"/>
       </Unit7>
       <Unit8>
         <Filename Value="Disassembler6809Unit.pas"/>
@@ -90,7 +84,6 @@
         <CursorPos X="20" Y="684"/>
         <UsageCount Value="286"/>
         <Loaded Value="True"/>
-        <DefaultSyntaxHighlighter Value="Delphi"/>
       </Unit8>
       <Unit9>
         <Filename Value="AbstractDisassemblerUnit.pas"/>
@@ -100,7 +93,6 @@
         <CursorPos X="8" Y="132"/>
         <UsageCount Value="283"/>
         <Loaded Value="True"/>
-        <DefaultSyntaxHighlighter Value="Delphi"/>
       </Unit9>
       <Unit10>
         <Filename Value="OpcodeListUnit.pas"/>
@@ -119,7 +111,6 @@
         <CursorPos X="16" Y="190"/>
         <UsageCount Value="273"/>
         <Loaded Value="True"/>
-        <DefaultSyntaxHighlighter Value="Delphi"/>
       </Unit11>
       <Unit12>
         <Filename Value="parameterlistunit.pas"/>
@@ -130,7 +121,6 @@
         <CursorPos X="7" Y="24"/>
         <UsageCount Value="227"/>
         <Loaded Value="True"/>
-        <DefaultSyntaxHighlighter Value="Delphi"/>
       </Unit12>
       <Unit13>
         <Filename Value="EvalUnit.pas"/>
@@ -145,7 +135,6 @@
         <CursorPos X="17" Y="7"/>
         <UsageCount Value="112"/>
         <Loaded Value="True"/>
-        <DefaultSyntaxHighlighter Value="Delphi"/>
       </Unit14>
       <Unit15>
         <Filename Value="fpexprpars.pp"/>
@@ -266,46 +255,46 @@
         <Caret Line="604" Column="70" TopLine="586"/>
       </Position27>
       <Position28>
-        <Filename Value="Disassembler6809Unit.pas"/>
-        <Caret Line="317" Column="40" TopLine="661"/>
-      </Position28>
-      <Position29>
         <Filename Value="SymbolListUnit.pas"/>
         <Caret Line="85" Column="24" TopLine="76"/>
-      </Position29>
-      <Position30>
+      </Position28>
+      <Position29>
         <Filename Value="Disassembler6809Unit.pas"/>
         <Caret Line="684" Column="7" TopLine="671"/>
+      </Position29>
+      <Position30>
+        <Filename Value="BeebDis.dpr"/>
+        <Caret Line="84" Column="72" TopLine="58"/>
       </Position30>
     </JumpHistory>
     <RunParams>
       <FormatVersion Value="2"/>
-      <Modes Count="0" ActiveMode="default"/>
+      <Modes ActiveMode="default"/>
     </RunParams>
   </ProjectSession>
   <Debugging>
-    <Watches Count="7">
-      <Item1>
+    <Watches>
+      <Item>
         <Expression Value="Keyword"/>
-      </Item1>
-      <Item2>
+      </Item>
+      <Item>
         <Expression Value="Count"/>
-      </Item2>
-      <Item3>
+      </Item>
+      <Item>
         <Expression Value="TargetLable"/>
-      </Item3>
-      <Item4>
+      </Item>
+      <Item>
         <Expression Value="RelDest"/>
-      </Item4>
-      <Item5>
+      </Item>
+      <Item>
         <Expression Value="Location"/>
-      </Item5>
-      <Item6>
+      </Item>
+      <Item>
         <Expression Value="CodeLine"/>
-      </Item6>
-      <Item7>
+      </Item>
+      <Item>
         <Expression Value="SymbolAddress"/>
-      </Item7>
+      </Item>
     </Watches>
   </Debugging>
 </CONFIG>

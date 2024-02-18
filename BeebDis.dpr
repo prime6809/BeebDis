@@ -81,7 +81,7 @@ END;
 PROCEDURE SignOn;
 
 BEGIN;
-  WriteLnFmtV(Disassember.Verbosity,VBNormal,'BeebDis V%d.%2.2d 2022-05, Phill Harvey-Smith.',[Major,Minor]);
+  WriteLnFmtV(Disassember.Verbosity,VBNormal,'BeebDis V%d.%2.2d 2024-02, Phill Harvey-Smith.',[Major,Minor]);
 END;
 
 PROCEDURE Finalize;
