@@ -38,7 +38,8 @@ TYPE
        FUNCTION LabMatches(ALabel   : STRING;
                            AAdSpace : BYTE) : BOOLEAN;
 
-
+       FUNCTION Dump : STRING;
+       FUNCTION TypeAsString : STRING;
      END;
 
      TSymbolList = Class(TObjectList)
@@ -74,6 +75,8 @@ TYPE
        FUNCTION ProcessComment(Line         : STRING;
                                CommentSeq   : STRING;
                                BeginOnly    : BOOLEAN = FALSE) : STRING;
+       PROCEDURE ChangeSymbolType(Index     : INTEGER;
+                                  NewType   : TSymbolType);
     PUBLIC
        PROPERTY Symbols[Index	: INTEGER]	: STRING READ GetSymbolFromIndex;
        PROPERTY Addresses[Index	: INTEGER] 	: DWORD READ GetAddressFromIndex;
@@ -190,6 +193,29 @@ FUNCTION TSymbol.LabMatches(ALabel   : STRING;
 BEGIN;
   Result:=((AAdSpace=AdSpaceAny) OR (AAdSpace = AdSpace)) AND
            (LowerCase(ALabel) = LowerCase(Symbol));
+END;
+
+FUNCTION TSymbol.Dump : STRING;
+
+VAR HexAddr : STRING;
+
+BEGIN;
+  HexAddr:=Format('%4.4X',[Address]);
+  Result:=FormatLine([Symbol,
+                      Format('$%4.4X',[Address]),
+                      Format('$%2.2X',[AdSpace]),
+                      TypeAsString],
+                      [0,32,40,44]);
+END;
+
+FUNCTION TSymbol.TypeAsString : STRING;
+
+BEGIN;
+  CASE SType OF
+    stLoaded    : Result:='Loaded';
+    stGenerated : Result:='Generated';
+    stAll       : Result:='All';
+  END;
 END;
 
 CONSTRUCTOR TSymbolList.Create(AName		: STRING;
@@ -419,6 +445,14 @@ BEGIN;
     SetLength(Result,CommentPos-1);
 END;
 
+PROCEDURE TSymbolList.ChangeSymbolType(Index     : INTEGER;
+                                       NewType   : TSymbolType);
+
+BEGIN;
+  IF (Index < Count-1) THEN
+    TSymbol(Items[Index]).SType:=NewType;
+END;
+
 PROCEDURE TSymbolList.LoadLabels(FileName	: STRING);
 
 VAR	LabelFile	: TStringList;
@@ -439,6 +473,7 @@ BEGIN;
     EquateStr:=Format(' %s ',[FParameters[mlEquate]]);
     IF (FileExists(FileName)) THEN
     BEGIN;
+      WriteLnFmtV(FVerbosity,VBDebug,'Loading labels from %s',[FileName]);
       LabelFile.LoadFromFile(FileName);
 
       FOR LineNo:=0 TO (LabelFile.Count-1) DO
@@ -477,7 +512,8 @@ BEGIN;
 
           IF ((Address>-1) AND (Address<$10000)) THEN
           BEGIN
-            AddAddress(Address,DefAdSpace,ALabel,stLoaded);
+            AddOrRenameAddress(Address,DefAdSpace,ALabel);
+            ChangeSymbolType(IndexOfAddress(Address,AdSpaceAny),stGenerated);
             WriteLnFmtV(FVerbosity,VBDebug,'Loaded lable %s value $%4.4X',[ALabel,Address]);
             IF(FParser.Identifiers.IndexOfIdentifier(ALabel) < 0) THEN
               FParser.Identifiers.AddIntegerVariable(ALabel,Address);
@@ -486,6 +522,7 @@ BEGIN;
       END;
     END;
   FINALLY
+    WriteLnFmtV(FVerbosity,VBDebug,'Finished loading labels from %s',[FileName]);
     LabelFile.Free;
     FParser.Free;
   END;
@@ -585,7 +622,8 @@ END;
 
 PROCEDURE TSymbolList.ImportFiles;
 
-VAR FileNo  : INTEGER;
+VAR FileNo      : INTEGER;
+    SymbolNo    : INTEGER;
 
 BEGIN;
   FOR FileNo:=0 TO (FSymbolFiles.Count-1) DO
@@ -594,6 +632,15 @@ BEGIN;
     LoadLabels(FSymbolFiles[FileNo]);
   END;
 
+  IF (FVerbosity>=VBDebug) THEN
+  BEGIN;
+    WriteLn;
+    WriteLn('Loaded symbol dump');
+    FOR SymbolNo:=0 TO (Count-1) DO
+      WriteLn(TSymbol(Items[SymbolNo]).Dump);
+
+    WriteLn;
+  END;
   FSymbolFiles.Clear;
 END;
 

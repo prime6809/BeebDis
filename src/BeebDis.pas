@@ -34,6 +34,9 @@ program BeebDis;
 {                                                                             }
 { 2022-05-08 Added ability to disassemble OS-9 / NitrOS9 binaries.            }
 {                                                                             }
+{ 2024-02-19 Fixed so that loaded labels always take priority over generated  }
+{       labels.                                                               }
+{                                                                             }
 
 uses
   SysUtils,
@@ -155,7 +158,7 @@ REPEAT count            ; Repeat the following lines (up until endrepeat) the
                         ; extracting data structures like strings etc.
                         ; NOTE repeats cannot (currently) be nested.
 ENDREPEAT               ; Terminate a previous repeat.
-OPTION name value       ; Set parameter name = value both string, boolean values
+OPTION name value       ; Set parameter name = value both string, boolean values          bin\$(TargetCPU)-$(TargetOS)\
                         ; may be set with the values 'true' or 'false' or '1'
                         ; or '0'
 RADIX 2 | 8 | 10 | 16   ; Set the default radix for number output.
@@ -256,7 +259,10 @@ BEGIN;
 
     SignOn;
 
-//    Writeln(ControlFile.Text);
+    // if debugging dump intermediate control file
+    WriteLnFmtV(Disassember.Verbosity,VBDebug,'Updated control file :',[]);
+    WriteLnFmtV(Disassember.Verbosity,VBDebug,'%s',[ControlFile.Text]);
+    WriteLnFmtV(Disassember.Verbosity,VBDebug,'',[]);
 
     LineNo:=0;
     WHILE ((NOT Abort) AND (LineNo<ControlFile.Count)) DO

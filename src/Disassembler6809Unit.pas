@@ -112,7 +112,7 @@ TYPE
       PROCEDURE InitDirectives;     override;
 	  PROCEDURE MakeOpCode(OpNo		    : INTEGER;
 			     	       InOpStr		: STRING;
-			     	       InOpBytes	: INTEGER;                     Go
+			     	       InOpBytes	: INTEGER;
                            InOpMode     : TAddressMode;
 			     	       InCPU		: TCPUSet = [tc6809];
                            InBranch		: BOOLEAN = FALSE);

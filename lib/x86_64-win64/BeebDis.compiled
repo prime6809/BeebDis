@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <Compiler Value="d:\lazarus\fpc\3.2.2\bin\x86_64-win64\fpc.exe" Date="1469148810"/>
+  <Params Value=" -Px86_64 -MDelphi -Scghi -gw2 -godwarfsets -gl -l -vewnhibq -FiZ:\Github\Prime6809\BeebDis\src -FiZ:\Github\Prime6809\BeebDis\lib\x86_64-win64 -FuZ:\Github\Prime6809\BeebDis\src -FuZ:\Github\Prime6809\BeebDis\ -FUZ:\Github\Prime6809\BeebDis\lib\x86_64-win64\ -FEZ:\Github\Prime6809\BeebDis\bin\x86_64-win64\ -oZ:\Github\Prime6809\BeebDis\bin\x86_64-win64\BeebDis.exe src\BeebDis.pas"/>
+</CONFIG>

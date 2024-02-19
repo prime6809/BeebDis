@@ -4,98 +4,94 @@
     <PathDelim Value="\"/>
     <Version Value="12"/>
     <BuildModes Active="Default"/>
-    <Units Count="31">
+    <Units Count="30">
       <Unit0>
         <Filename Value="src\BeebDis.pas"/>
         <IsPartOfProject Value="True"/>
-        <TopLine Value="40"/>
-        <CursorPos X="69" Y="84"/>
-        <UsageCount Value="23"/>
+        <TopLine Value="344"/>
+        <CursorPos X="92" Y="278"/>
+        <UsageCount Value="22"/>
         <Loaded Value="True"/>
         <DefaultSyntaxHighlighter Value="Delphi"/>
       </Unit0>
       <Unit1>
         <Filename Value="src\MemoryListUnit.pas"/>
         <IsPartOfProject Value="True"/>
-        <UsageCount Value="23"/>
+        <UsageCount Value="22"/>
       </Unit1>
       <Unit2>
         <Filename Value="src\SymbolListUnit.pas"/>
         <IsPartOfProject Value="True"/>
-        <EditorIndex Value="4"/>
-        <TopLine Value="495"/>
+        <IsVisibleTab Value="True"/>
+        <EditorIndex Value="3"/>
+        <TopLine Value="487"/>
         <CursorPos Y="513"/>
-        <UsageCount Value="23"/>
+        <UsageCount Value="22"/>
         <Loaded Value="True"/>
         <DefaultSyntaxHighlighter Value="Delphi"/>
       </Unit2>
       <Unit3>
         <Filename Value="src\ConsoleUnit.pas"/>
         <IsPartOfProject Value="True"/>
-        <EditorIndex Value="5"/>
-        <TopLine Value="54"/>
-        <CursorPos Y="95"/>
-        <UsageCount Value="23"/>
-        <Loaded Value="True"/>
-        <DefaultSyntaxHighlighter Value="Delphi"/>
+        <UsageCount Value="22"/>
       </Unit3>
       <Unit4>
         <Filename Value="src\CPUMemoryUnit.pas"/>
         <IsPartOfProject Value="True"/>
-        <UsageCount Value="23"/>
+        <UsageCount Value="22"/>
       </Unit4>
       <Unit5>
         <Filename Value="src\RamothStringListUnit.pas"/>
         <IsPartOfProject Value="True"/>
-        <UsageCount Value="23"/>
+        <UsageCount Value="22"/>
       </Unit5>
       <Unit6>
         <Filename Value="src\Disassembler6502Unit.pas"/>
         <IsPartOfProject Value="True"/>
-        <UsageCount Value="23"/>
+        <UsageCount Value="22"/>
       </Unit6>
       <Unit7>
         <Filename Value="src\UtilsUnit.pas"/>
         <IsPartOfProject Value="True"/>
-        <EditorIndex Value="6"/>
+        <EditorIndex Value="4"/>
         <TopLine Value="74"/>
         <CursorPos Y="87"/>
-        <UsageCount Value="23"/>
+        <UsageCount Value="22"/>
         <Loaded Value="True"/>
         <DefaultSyntaxHighlighter Value="Delphi"/>
       </Unit7>
       <Unit8>
         <Filename Value="src\Disassembler6809Unit.pas"/>
         <IsPartOfProject Value="True"/>
-        <EditorIndex Value="3"/>
+        <EditorIndex Value="2"/>
         <TopLine Value="321"/>
         <CursorPos X="51" Y="136"/>
-        <UsageCount Value="23"/>
+        <UsageCount Value="22"/>
         <Loaded Value="True"/>
         <DefaultSyntaxHighlighter Value="Delphi"/>
       </Unit8>
       <Unit9>
         <Filename Value="src\AbstractDisassemblerUnit.pas"/>
         <IsPartOfProject Value="True"/>
-        <EditorIndex Value="7"/>
+        <EditorIndex Value="5"/>
         <CursorPos Y="135"/>
-        <UsageCount Value="23"/>
+        <UsageCount Value="22"/>
         <Loaded Value="True"/>
         <DefaultSyntaxHighlighter Value="Delphi"/>
       </Unit9>
       <Unit10>
         <Filename Value="src\OpcodeListUnit.pas"/>
         <IsPartOfProject Value="True"/>
-        <UsageCount Value="23"/>
+        <UsageCount Value="22"/>
       </Unit10>
       <Unit11>
         <Filename Value="src\disassemblersunit.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="DisassemblersUnit"/>
-        <EditorIndex Value="2"/>
+        <EditorIndex Value="1"/>
         <TopLine Value="132"/>
         <CursorPos X="17" Y="41"/>
-        <UsageCount Value="23"/>
+        <UsageCount Value="22"/>
         <Loaded Value="True"/>
         <DefaultSyntaxHighlighter Value="Delphi"/>
       </Unit11>
@@ -103,7 +99,7 @@
         <Filename Value="src\parameterlistunit.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="ParameterListUnit"/>
-        <UsageCount Value="23"/>
+        <UsageCount Value="22"/>
       </Unit12>
       <Unit13>
         <Filename Value="BeebDis.dpr"/>
@@ -238,136 +234,127 @@
         <CursorPos X="14" Y="855"/>
         <UsageCount Value="10"/>
       </Unit29>
-      <Unit30>
-        <Filename Value="src\BeebDisDefsUnit.pas"/>
-        <IsVisibleTab Value="True"/>
-        <EditorIndex Value="1"/>
-        <CursorPos X="17" Y="7"/>
-        <UsageCount Value="10"/>
-        <Loaded Value="True"/>
-        <DefaultSyntaxHighlighter Value="Delphi"/>
-      </Unit30>
     </Units>
     <JumpHistory Count="30" HistoryIndex="29">
       <Position1>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="365" TopLine="340"/>
+        <Caret Line="592" TopLine="561"/>
       </Position1>
       <Position2>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="367" TopLine="340"/>
+        <Caret Line="600" TopLine="561"/>
       </Position2>
       <Position3>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="370" TopLine="340"/>
+        <Caret Line="592" TopLine="561"/>
       </Position3>
       <Position4>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="364" TopLine="340"/>
+        <Caret Line="600" TopLine="561"/>
       </Position4>
       <Position5>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="371" TopLine="340"/>
+        <Caret Line="599" TopLine="567"/>
       </Position5>
       <Position6>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="364" TopLine="340"/>
+        <Caret Line="118" Column="28" TopLine="97"/>
       </Position6>
       <Position7>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="371" TopLine="340"/>
+        <Caret Line="204" Column="23"/>
       </Position7>
       <Position8>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="516" TopLine="494"/>
+        <Caret Line="212" Column="7" TopLine="203"/>
       </Position8>
       <Position9>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="270" TopLine="246"/>
+        <Caret Line="206" Column="37" TopLine="181"/>
       </Position9>
       <Position10>
-        <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="271" TopLine="246"/>
+        <Filename Value="src\AbstractDisassemblerUnit.pas"/>
+        <Caret Line="135" TopLine="112"/>
       </Position10>
       <Position11>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="273" TopLine="246"/>
+        <Caret Line="128" Column="29" TopLine="107"/>
       </Position11>
       <Position12>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="274" TopLine="246"/>
+        <Caret Line="627" Column="11" TopLine="107"/>
       </Position12>
       <Position13>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="273" TopLine="246"/>
+        <Caret Line="631" Column="13" TopLine="605"/>
       </Position13>
       <Position14>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="274" TopLine="246"/>
+        <Caret Line="119" Column="28" TopLine="93"/>
       </Position14>
       <Position15>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="273" TopLine="246"/>
+        <Caret Line="446" Column="33" TopLine="470"/>
       </Position15>
       <Position16>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="274" TopLine="246"/>
+        <Caret Line="59" Column="27" TopLine="51"/>
       </Position16>
       <Position17>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="273" TopLine="246"/>
+        <Caret Line="95" Column="31" TopLine="57"/>
       </Position17>
       <Position18>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="274" TopLine="246"/>
+        <Caret Line="505" Column="13" TopLine="474"/>
       </Position18>
       <Position19>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="273" TopLine="246"/>
+        <Caret Line="100" Column="17" TopLine="439"/>
       </Position19>
       <Position20>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="274" TopLine="246"/>
+        <Caret Line="515" Column="32" TopLine="486"/>
       </Position20>
       <Position21>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="273" TopLine="246"/>
+        <Caret Line="102" Column="17" TopLine="288"/>
       </Position21>
       <Position22>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="277" TopLine="246"/>
+        <Caret Line="516" Column="30" TopLine="492"/>
       </Position22>
       <Position23>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="451" TopLine="428"/>
+        <Caret Line="102" Column="17" TopLine="79"/>
       </Position23>
       <Position24>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="452" TopLine="428"/>
+        <Caret Line="516" Column="53" TopLine="493"/>
       </Position24>
       <Position25>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="453" TopLine="428"/>
+        <Caret Line="67" Column="17" TopLine="43"/>
       </Position25>
       <Position26>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="454" TopLine="428"/>
+        <Caret Line="516" Column="52" TopLine="493"/>
       </Position26>
       <Position27>
         <Filename Value="src\SymbolListUnit.pas"/>
-        <Caret Line="517" TopLine="495"/>
+        <Caret Line="67" Column="31" TopLine="43"/>
       </Position27>
       <Position28>
-        <Filename Value="src\ConsoleUnit.pas"/>
-        <Caret Line="95" TopLine="54"/>
+        <Filename Value="src\SymbolListUnit.pas"/>
+        <Caret Line="265" Column="36" TopLine="244"/>
       </Position28>
       <Position29>
-        <Filename Value="src\BeebDis.pas"/>
-        <Caret Line="278" Column="92" TopLine="376"/>
+        <Filename Value="src\SymbolListUnit.pas"/>
+        <Caret Line="36" Column="17" TopLine="214"/>
       </Position29>
       <Position30>
-        <Filename Value="src\BeebDis.pas"/>
-        <Caret Line="84" Column="69" TopLine="40"/>
+        <Filename Value="src\SymbolListUnit.pas"/>
+        <Caret Line="15" Column="15"/>
       </Position30>
     </JumpHistory>
     <RunParams>
@@ -385,6 +372,15 @@
     </HistoryLists>
   </ProjectSession>
   <Debugging>
+    <BreakPoints>
+      <Item>
+        <Kind Value="bpkSource"/>
+        <WatchScope Value="wpsLocal"/>
+        <WatchKind Value="wpkWrite"/>
+        <Source Value="src\SymbolListUnit.pas"/>
+        <Line Value="513"/>
+      </Item>
+    </BreakPoints>
     <Watches>
       <Item>
         <Expression Value="Keyword"/>
@@ -409,9 +405,6 @@
       </Item>
       <Item>
         <Expression Value="ControlStr"/>
-      </Item>
-      <Item>
-        <Expression Value="ALabel"/>
       </Item>
     </Watches>
   </Debugging>
